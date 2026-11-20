@@ -148,12 +148,17 @@ VM.sound = {
   music(on) {
     if (on && this.musicOff) return;
     if (this.ownSong && Date.now() - this.ownSong.at > VM.ownSong.HOURS * 3600000) VM.ownSong.clear(); // 24 hours are up
-    // a temporary bus song from the game server (if there is one), unless this player chose their own song
-    const serverSong = !this.ownSong && this.busSongOn && VM.net ? VM.net.api('bus-song') : null;
+    // the bus song: a temporary song from the game server if there is one, otherwise the site's bus song
+    // (assets/sounds/bus-song.mp3 on saams.fun), unless this player chose their own song
+    const serverSong = !this.ownSong && (this.busSongOn && VM.net ? VM.net.api('bus-song') : (this.siteSongOk !== false ? 'assets/sounds/bus-song.mp3' : null));
     if (serverSong) {
       if (!on) { if (this.songEl) this.songEl.pause(); return; }
       if (!this.songEl) { this.songEl = new Audio(); this.songEl.loop = true; }
-      if (this.songEl.dataset.src !== serverSong) { this.songEl.src = serverSong; this.songEl.dataset.src = serverSong; }
+      if (this.songEl.dataset.src !== serverSong) {
+        this.songEl.src = serverSong; this.songEl.dataset.src = serverSong;
+        // the song file is missing (for example on the cloud server's own address): use the game's tune instead
+        this.songEl.onerror = () => { if (this.songEl.dataset.src === 'assets/sounds/bus-song.mp3') { this.siteSongOk = false; this.songEl.dataset.src = ''; if (VM.journeyOn) this.music(true); } };
+      }
       this.songEl.volume = 0.85;
       this.songEl.currentTime = 0;
       this.songEl.play().catch(() => { const tap = document.getElementById('tapmusic'); if (tap && VM.journeyOn) tap.hidden = false; });

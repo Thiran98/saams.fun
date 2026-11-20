@@ -13,3 +13,4 @@ backups/
 .DS_Store
 Thumbs.db
 *.log
+client/assets/sounds/bus-song.mp3
