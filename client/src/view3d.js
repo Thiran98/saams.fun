@@ -720,7 +720,16 @@ VM.view3d = (function () {
     if (part) {
       let diff = target - part.rotation.y; while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2;
       part.rotation.y += diff * Math.min(1, dt * 10);
-      if (isPerson) { d.bob = (d.bob || 0) + (moving ? dt * 14 : 0); part.position.y = moving ? Math.abs(Math.sin(d.bob)) * 0.08 : 0; part.rotation.z = Math.PI / 2 * ((s.angle || 0) / 90); }
+      if (isPerson) {
+        d.bob = (d.bob || 0) + (moving ? dt * 14 : 0); part.position.y = moving ? Math.abs(Math.sin(d.bob)) * 0.06 : 0; part.rotation.z = Math.PI / 2 * ((s.angle || 0) / 90);
+        const p = part.userData.parts;
+        if (p) {
+          d.stride = (d.stride || 0) + ((moving ? 1 : 0) - (d.stride || 0)) * Math.min(1, dt * 8);   // eases in and out
+          const sw = Math.sin(d.bob) * 0.55 * d.stride;
+          if (p.legs) { p.legs[0].rotation.x = sw; p.legs[1].rotation.x = -sw; }
+          if (p.arms) { p.arms[0].rotation.x = -sw * 0.8; p.arms[1].rotation.x = sw * 0.8; }
+        }
+      }
     }
   }
 

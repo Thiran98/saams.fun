@@ -59,35 +59,37 @@ VM.buildVillager = function buildVillager(seed, detail, force) {
   const grey = F.grey !== undefined ? F.grey : rnd() < 0.15, hairM = mat(grey ? '#8a8682' : '#1b1512');
   const body = new THREE.Group(), parts = {};
 
-  // ---- feet: worn rubber slippers or bare
+  // ---- legs: each one swings from the hip, with a foot (worn rubber slipper or bare) at the end
   const slippers = F.slippers !== undefined ? F.slippers : rnd() < 0.65, slipC = pick(['#3a6fd0', '#e8e4da', '#3a3a3a', '#c0392b']);
-  parts.feet = [-1, 1].map((sd) => {
-    const f = new THREE.Group(); f.position.set(sd * 0.085, 0, 0.05);
-    f.add(sph(0.06, skin, 0, 0.035, 0.01, 1, 0.55, 1.6));
-    if (slippers) { f.add(box(0.11, 0.018, 0.19, slipC, 0, 0.009, 0.01)); f.add(box(0.012, 0.03, 0.06, slipC, 0, 0.04, 0.04)); }
-    body.add(f); return f;
+  const HIP = 0.27;
+  parts.legs = [-1, 1].map((sd) => {
+    const leg = new THREE.Group(); leg.position.set(sd * 0.08, HIP, 0);
+    leg.add(mesh(new THREE.CylinderGeometry(0.036, 0.032, 0.23, 10), skin, 0, -0.115, 0));            // the leg
+    leg.add(sph(0.038, skin, 0, -0.12, 0.005, 1, 0.8, 1));                                              // a knobbly knee
+    const foot = new THREE.Group(); foot.position.set(0, -HIP, 0.04);                                   // the foot on the ground
+    foot.add(sph(0.058, skin, 0, 0.035, 0.01, 1, 0.55, 1.6));
+    if (slippers) { foot.add(box(0.105, 0.018, 0.18, slipC, 0, 0.009, 0.01)); foot.add(box(0.012, 0.03, 0.06, slipC, 0, 0.04, 0.04)); }
+    leg.add(foot);
+    body.add(leg); return leg;
   });
+  parts.feet = parts.legs;   // older code swings "feet": now the whole leg swings
 
-  // ---- bottoms: a faded sarong (rolled up, knotted), old patched shorts, or rolled-up trousers
+  // ---- bottoms: a knee-length faded sarong (or rolled up), old patched shorts, or rolled-up trousers
   const low = F.low || pick(['sarong', 'sarong', 'sarong', 'shorts', 'trousers']), lowC = F.lowC || pick(FADED);
-  const legs = (len) => [-1, 1].forEach((sd) => body.add(mesh(new THREE.CylinderGeometry(0.034, 0.034, len, 10), skin, sd * 0.085, 0.04 + len / 2, 0)));
   if (low === 'sarong') {
-    const rolled = F.rolled !== undefined ? F.rolled : rnd() < 0.5;   // folded up to the knees for work
-    legs(rolled ? 0.13 : 0.1);
-    const h = rolled ? 0.15 : 0.2, y = rolled ? 0.27 : 0.24;
-    body.add(mesh(new THREE.CylinderGeometry(0.14, 0.175, h, seg[0]), mat('#ffffff', { map: fabric(lowC, 'check') }), 0, y, 0));
-    for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; body.add(box(0.03, 0.025, 0.01, mat(lowC), Math.sin(a) * 0.172, y - h / 2 - 0.006, Math.cos(a) * 0.172)).children.slice(-1)[0].rotation.y = a; } // frayed hem
-    body.add(sph(0.032, mat(lowC), 0.06, 0.34, 0.13, 1.2, 0.8, 0.6));                       // the knot
-  } else if (low === 'shorts') {
-    legs(0.13);
-    const m = mat('#ffffff', { map: fabric(lowC, 'plain') });
-    [-1, 1].forEach((sd) => body.add(mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.09, 12), m, sd * 0.075, 0.2, 0)));
-    body.add(mesh(new THREE.CylinderGeometry(0.135, 0.14, 0.08, seg[0]), m, 0, 0.28, 0));
+    const rolled = F.rolled !== undefined ? F.rolled : rnd() < 0.5;   // folded up for field work
+    const h = rolled ? 0.1 : 0.14, y = rolled ? 0.32 : 0.3;
+    body.add(mesh(new THREE.CylinderGeometry(0.14, 0.17, h, seg[0]), mat('#ffffff', { map: fabric(lowC, 'check') }), 0, y, 0));
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; body.add(box(0.03, 0.025, 0.01, mat(lowC), Math.sin(a) * 0.167, y - h / 2 - 0.006, Math.cos(a) * 0.167)).children.slice(-1)[0].rotation.y = a; } // frayed hem
+    body.add(sph(0.032, mat(lowC), 0.06, 0.35, 0.13, 1.2, 0.8, 0.6));                       // the knot
   } else {
-    const m = mat('#ffffff', { map: fabric(lowC, 'plain') });
-    legs(0.06);
-    [-1, 1].forEach((sd) => { body.add(mesh(new THREE.CylinderGeometry(0.05, 0.052, 0.2, 12), m, sd * 0.075, 0.16, 0)); body.add(mesh(new THREE.CylinderGeometry(0.056, 0.056, 0.03, 12), mat(lowC), sd * 0.075, 0.075, 0)); }); // rolled-up cuffs
-    body.add(mesh(new THREE.CylinderGeometry(0.135, 0.14, 0.08, seg[0]), m, 0, 0.28, 0));
+    const m = mat('#ffffff', { map: fabric(lowC, 'plain') }), long = low === 'trousers';
+    parts.legs.forEach((leg) => {
+      const len = long ? 0.19 : 0.09;
+      leg.add(mesh(new THREE.CylinderGeometry(0.052, 0.056, len, 12), m, 0, -len / 2 + 0.01, 0));      // the trouser / shorts leg swings with the leg
+      if (long) leg.add(mesh(new THREE.CylinderGeometry(0.057, 0.057, 0.03, 12), mat(lowC), 0, -0.18, 0)); // rolled-up cuff
+    });
+    body.add(mesh(new THREE.CylinderGeometry(0.135, 0.14, 0.08, seg[0]), m, 0, 0.29, 0));
   }
 
   // ---- top: an old shirt (a button missing), a worn T-shirt, or a vest with holes; frayed hem
