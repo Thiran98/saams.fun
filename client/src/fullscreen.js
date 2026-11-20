@@ -31,7 +31,10 @@ VM.fullscreen = (() => {
 window.addEventListener('load', () => {
   const fs = VM.fullscreen, btn = document.getElementById('fsbtn');
   const touch = document.body.classList.contains('is-touch') || matchMedia('(pointer: coarse)').matches;
-  const show = () => { if (!btn) return; btn.textContent = fs.isOn() ? '🗗' : '⛶'; btn.setAttribute('aria-label', fs.isOn() ? 'Leave full screen' : 'Full screen'); btn.title = btn.getAttribute('aria-label'); };
+  // drawn icons (an emoji or symbol can show as an empty box on some phones)
+  const ICON_ON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
+  const ICON_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>';
+  const show = () => { if (!btn) return; btn.innerHTML = fs.isOn() ? ICON_OFF : ICON_ON; btn.setAttribute('aria-label', fs.isOn() ? 'Leave full screen' : 'Full screen'); btn.title = btn.getAttribute('aria-label'); };
   if (btn) {
     btn.hidden = !fs.supported;
     btn.addEventListener('click', (e) => { e.stopPropagation(); fs.toggle(); });

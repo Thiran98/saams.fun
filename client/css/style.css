@@ -1135,8 +1135,10 @@ body.is-touch .dam-rows { max-height: 34vh; }
 /* full screen button (one tap full screen on phones; this toggles it) */
 #fsbtn { position: fixed; right: 12px; bottom: 12px; z-index: 61; width: 40px; height: 40px; border-radius: 12px; border: 2px solid rgba(255,255,255,.55); background: rgba(22,26,20,.8); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 #fsbtn[hidden] { display: none; }
-body.is-touch #fsbtn { right: auto; left: 58px; top: 10px; bottom: auto; width: 40px; height: 40px; }
-body.is-touch:not(.playing) #fsbtn { left: 10px; }
+#fsbtn { display: grid; place-items: center; padding: 0; }
+body.is-touch #fsbtn { right: auto; left: 10px; top: 58px; bottom: auto; width: 40px; height: 40px; } /* under the menu button */
+body.is-touch:not(.playing) #fsbtn { top: 10px; }
+#lobby:not([hidden]) ~ #fsbtn, #reveal:not([hidden]) ~ #fsbtn { display: none !important; } /* not over the bus stand or the role reveal */
 
 /* turned phones (held upright, shown sideways): the screen's height is the phone's width, so the menu card is
    limited by that and scrolls inside instead of running off the screen */
