@@ -138,6 +138,10 @@ VM.myThings = (scene) => {
   if (plot !== undefined && plot >= 0) { const r = VM.paddyPlotRect(scene.world, plot); out.push({ kind: 'paddy', icon: '🌾', label: 'Your paddy', short: 'Paddy', x: r.x, y: r.y, w: r.w, h: r.h }); }
   return out;
 };
+// the village kanatta (cemetery): every player who dies gets a headstone with their name here
+VM.CEMETERY = { x: 13, y: 44, w: 7, h: 5 };
+// headstone number i (in order of death): 4 a row, 3 rows, in pixels
+VM.gravePos = (i) => { const c = VM.CEMETERY; return { x: (c.x + 1.1 + (i % 4) * 1.55) * VM.TILE, y: (c.y + 1.6 + Math.floor(i / 4 % 3) * 1.25) * VM.TILE }; };
 VM.TRACTOR_SECONDS = 15; // one tractor ride lasts this long
 VM.SELF_RESCUE_SECONDS = 30; // fallen in the water: you climb out by yourself after this long (or someone pulls you out)
 VM.ELEPHANTS_PER_NIGHT = 5;   // the first 3 go to the paddy fields, the rest roam the village

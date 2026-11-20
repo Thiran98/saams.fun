@@ -88,6 +88,7 @@ VM.view3d = (function () {
     buildSpecks();
     buildLanka();
     buildTempleLife();
+    buildKanatta();
 
     // white flags and fences drawn by the 2D game get a 3D version too
     const mourn = sceneP.mourn && sceneP.mourn.bind(sceneP);
@@ -456,6 +457,46 @@ VM.view3d = (function () {
     tree.position.set(bx, 0, bz);
     tree.traverse((c) => { c.castShadow = true; });
     scene3.add(tree);
+  }
+
+  // ---- the kanatta (village cemetery): a low whitewashed wall with a gate, an araliya tree, and a headstone per death
+  function buildKanatta() {
+    const c = VM.CEMETERY; if (!c) return;
+    const g = new THREE.Group(), x0 = c.x, z0 = c.y, x1 = c.x + c.w, z1 = c.y + c.h, gx = (x0 + x1) / 2;
+    const wall = (ax, az, bx, bz) => { const len = Math.hypot(bx - ax, bz - az); if (len < 0.05) return; const w = box(len, 0.32, 0.16, '#e9e4d8', (ax + bx) / 2, 0.16, (az + bz) / 2); w.rotation.y = -Math.atan2(bz - az, bx - ax); g.add(w); const cap = box(len + 0.04, 0.05, 0.22, '#bdb6a6', (ax + bx) / 2, 0.34, (az + bz) / 2); cap.rotation.copy(w.rotation); g.add(cap); };
+    wall(x0, z0, x1, z0); wall(x0, z0, x0, z1); wall(x1, z0, x1, z1);
+    wall(x0, z1, gx - 0.6, z1); wall(gx + 0.6, z1, x1, z1);                          // the front wall, with the gate gap
+    [gx - 0.65, gx + 0.65].forEach((x) => { g.add(box(0.26, 0.75, 0.26, '#e9e4d8', x, 0.37, z1)); g.add(box(0.32, 0.08, 0.32, '#bdb6a6', x, 0.78, z1)); }); // gate pillars
+    // an araliya (frangipani) tree in the corner: grey branches, white flowers
+    const t = new THREE.Group();
+    t.add(mesh(new THREE.CylinderGeometry(0.08, 0.13, 1.1, 7), '#8d8378', 0, 0.55, 0));
+    [[0.35, 1.15, 0.1, -0.7], [-0.3, 1.2, -0.05, 0.7], [0.05, 1.25, 0.32, 0.2]].forEach(([x, y, z, r]) => { const b = mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.7, 6), '#8d8378', x, y, z); b.rotation.z = r; t.add(b); });
+    [[0.6, 1.5, 0.1, 0.42], [-0.55, 1.55, -0.05, 0.45], [0.05, 1.7, 0.4, 0.4], [0, 1.65, -0.3, 0.38]].forEach(([x, y, z, r], i) => {
+      t.add(mesh(new THREE.IcosahedronGeometry(r, 1), i % 2 ? '#5f9a4a' : '#6aa852', x, y, z));
+      for (let k = 0; k < 4; k++) t.add(mesh(new THREE.SphereGeometry(0.06, 6, 4), '#fffaf0', x + Math.cos(k * 1.6) * r * 0.8, y + 0.15, z + Math.sin(k * 1.6) * r * 0.8));
+    });
+    t.position.set(x0 + 0.7, 0, z0 + 0.7); g.add(t);
+    g.traverse((m) => { m.castShadow = true; });
+    scene3.add(g);
+  }
+  const graves3 = new Map();
+  function syncGraves() {
+    if (!sceneP.graves) return;
+    for (const [id, gr] of sceneP.graves) {
+      if (graves3.has(id)) continue;
+      const g = new THREE.Group();
+      g.add(box(0.62, 0.08, 0.95, '#8a8c92', 0, 0.04, 0.25));                          // the grave slab
+      g.add(box(0.5, 0.06, 0.8, '#a3a5ab', 0, 0.11, 0.28));
+      const stone = gr.dark ? '#2b2c31' : '#9a9ca3';
+      g.add(box(0.46, 0.48, 0.12, stone, 0, 0.36, -0.15));                            // the headstone
+      const top = mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.12, 16, 1, false, 0, Math.PI), stone, 0, 0.6, -0.15); top.rotation.set(Math.PI / 2, Math.PI / 2, 0); g.add(top);
+      g.add(box(0.3, 0.05, 0.02, gr.dark ? '#d8c27a' : '#4a4b50', 0, 0.42, -0.08));    // the name plate
+      g.add(mesh(new THREE.SphereGeometry(0.06, 6, 4), '#f6f0e0', 0.16, 0.18, 0.45));  // a few araliya flowers left on the grave
+      g.add(mesh(new THREE.SphereGeometry(0.05, 6, 4), '#fff6dc', -0.12, 0.18, 0.55));
+      g.position.set(U(gr.x), 0, U(gr.y) - 0.3);
+      g.traverse((m) => { m.castShadow = true; });
+      scene3.add(g); graves3.set(id, g);
+    }
   }
 
   // ---- my things: glowing outline + bobbing pin in my colour
@@ -899,6 +940,7 @@ VM.view3d = (function () {
     syncDetails(now);
     syncHelpers(now, dt);
     syncMine(now);
+    syncGraves();
     updateFish(now);
     flagsToWave.forEach((fl) => { const p = fl.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, Math.sin(now / 250 + x * 5) * 0.06 * (x + 0.5)); } p.needsUpdate = true; });
     lamps.forEach((l) => { l.material.emissiveIntensity = (sceneP.isNight || sceneP.isDusk) ? 1.2 : 0.2; }); // street lamps light up in the evening

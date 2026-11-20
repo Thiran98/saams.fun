@@ -435,11 +435,16 @@ Object.assign(VillageScene.prototype, {
       this.mourned.add(id);
       this.mourn(this.houseObjs[p.house]);
     });
-    // trophies where people died (everyone sees them)
-    if (!this.trophies) this.trophies = new Map();
+    // the kanatta: every player who dies gets a headstone with their name (everyone sees it)
+    this.drawKanatta();
+    if (!this.graves) this.graves = new Map();
     st.players.forEach((p, id) => {
-      if (p.alive || !p.dx || this.trophies.has(id)) return;
-      this.trophies.set(id, this.add.text(p.dx, p.dy, '🏆\n' + p.name, { fontFamily: 'Segoe UI, Arial, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#ffe9a8', align: 'center', backgroundColor: 'rgba(20,20,20,0.55)', padding: { x: 5, y: 2 } }).setOrigin(0.5, 1).setResolution(2).setDepth(p.dy));
+      if (p.alive || this.graves.has(id) || st.stage === 'lobby') return;
+      const at = VM.gravePos(this.graves.size), g = this.add.graphics().setDepth(at.y);
+      g.fillStyle(0x7d7f86); g.fillRect(at.x - 13, at.y - 4, 26, 8);                       // slab
+      g.fillStyle(this.graves.size % 2 ? 0x2b2c31 : 0x9a9ca3); g.fillRoundedRect(at.x - 9, at.y - 26, 18, 24, { tl: 8, tr: 8, bl: 1, br: 1 }); // headstone
+      const name = this.add.text(at.x, at.y - 30, p.name, { fontFamily: 'Segoe UI, Arial, sans-serif', fontSize: '10px', fontStyle: 'bold', color: '#ffffff', backgroundColor: 'rgba(30,30,34,0.7)', padding: { x: 4, y: 1 } }).setOrigin(0.5, 1).setResolution(2).setDepth(at.y + 1);
+      this.graves.set(id, { x: at.x, y: at.y, name: p.name, dark: this.graves.size % 2 === 1, g, label: name });
     });
     // me, injured: lie down and wait for the doctor
     const hurt = !!(mine && mine.alive && mine.injured > 0);
@@ -756,5 +761,19 @@ Object.assign(VillageScene.prototype, {
         this.tweens.add({ targets: b, y: b.y + 3, angle: 15, duration: 260 + Math.random() * 200, yoyo: true, repeat: -1, delay: Math.random() * 500 });
       }
     }
+  },
+});
+
+Object.assign(VillageScene.prototype, {
+  // the kanatta, drawn once: a low wall with a gate and a sign
+  drawKanatta() {
+    if (this.kanattaDrawn) return;
+    this.kanattaDrawn = true;
+    const c = VM.CEMETERY, S = VM.TILE, x0 = c.x * S, y0 = c.y * S, x1 = (c.x + c.w) * S, y1 = (c.y + c.h) * S;
+    const g = this.add.graphics().setDepth(y0);
+    g.fillStyle(0x5f9a40, 0.5); g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.lineStyle(5, 0xb9b3a6); g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    g.fillStyle(0x6fae46); g.fillRect((x0 + x1) / 2 - 18, y1 - 4, 36, 8);                 // the gate opening
+    this.kanattaLabel = this.addPlaceLabel((x0 + x1) / 2, y0 - 4, 'Kanatta (cemetery)');
   },
 });
