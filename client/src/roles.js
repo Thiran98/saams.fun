@@ -550,6 +550,7 @@ Object.assign(VillageScene.prototype, {
         VM.sound.play('task');
         VM.ui.banner('Saved', m.by + ' saved you!', 'You are back in the game.');
         break;
+      case 'bees': this.remoteBees(m); break;
       case 'shot':
         VM.sound.play('gun');
         if (Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y) < 700) this.cameras.main.flash(120, 255, 240, 200);

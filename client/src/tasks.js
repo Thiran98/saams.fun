@@ -232,9 +232,12 @@ VM.TASKS = {
     },
   },
 
-  hunt: { label: 'Hunt in the jungle (wild meat)', seconds: 4, cooldown: 25, done: () => {
-    if (Math.random() < 0.45) { VM.give('meat', 1); return 'You caught a wild jungle fowl: 1 meat!'; }
-    return 'The animal got away. Try again later.';
+  hunt: { label: 'Hunt in the jungle (wild meat)', seconds: 4, cooldown: 25, done: (scene) => {
+    const bees = scene && scene.startBees && !scene.isNight && !scene.bees && Math.random() < VM.BEE_CHANCE;
+    const caught = Math.random() < 0.45;
+    if (caught) VM.give('meat', 1);
+    if (bees) { scene.startBees(); return (caught ? 'You caught 1 meat, but ' : 'Oh no! ') + 'you hit a bees\' nest! 🐝 Run to any house in the village and hide!'; }
+    return caught ? 'You caught a wild jungle fowl: 1 meat!' : 'The animal got away. Try again later.';
   } },
 
   paddy: { label: 'Harvest paddy', seconds: 3, done: () => { VM.give('paddy', 1); return 'You harvested paddy.'; } },

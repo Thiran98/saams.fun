@@ -110,7 +110,7 @@ VM.net = {
     this.setStatus('online');
     room.onMessage('snap', (m) => { if (this.onSnap) this.onSnap(m); });
     // Phase 3 game messages (roles, kills, meetings, votes…) go to the scene
-    for (const type of ['role', 'note', 'loot', 'purse', 'rescued', 'mpicks', 'narrate', 'injured', 'healed', 'shot', 'swapOffer', 'swapDone', 'aswasuma', 'funeral', 'picked', 'killed', 'morning', 'matchStart', 'meeting', 'verdict', 'reveal', 'restart']) {
+    for (const type of ['role', 'note', 'loot', 'purse', 'rescued', 'mpicks', 'narrate', 'injured', 'healed', 'shot', 'swapOffer', 'swapDone', 'bees', 'aswasuma', 'funeral', 'picked', 'killed', 'morning', 'matchStart', 'meeting', 'verdict', 'reveal', 'restart']) {
       room.onMessage(type, (m) => this.dispatch(type, m));
     }
     room.onError((code, message) => console.warn('Game server error', code, message));

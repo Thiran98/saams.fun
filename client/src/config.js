@@ -146,8 +146,18 @@ VM.TRACTOR_SECONDS = 15; // one tractor ride lasts this long
 VM.SELF_RESCUE_SECONDS = 30; // fallen in the water: you climb out by yourself after this long (or someone pulls you out)
 VM.ELEPHANTS_PER_NIGHT = 5;   // the first 3 go to the paddy fields, the rest roam the village
 VM.DUSK_SECONDS = 25;         // warning time at the end of a day before night falls
-VM.ELEPHANT_SEES = 260;       // how far (pixels) an elephant notices someone outside at night
-VM.ELEPHANT_KILLS = 26;       // how close it must get to kill
+VM.ELEPHANT_SEES = 340;       // how far (pixels) an elephant notices someone outside at night
+VM.ELEPHANT_KILLS = 30;       // how close it must get to kill
+VM.ELEPHANT_CHARGE = 105;     // charging speed (you walk at 150, only 90 when you are hungry)
+VM.ELEPHANT_WALK = 44;        // walking speed while it roams or eats
+VM.ELEPHANT_MEMORY = 3500;    // ms it keeps chasing after you get out of sight
+VM.ELEPHANT_EAT_DAY = 400;    // ms between bites by day (vegetables and paddy go fast)
+VM.ELEPHANT_EAT_NIGHT = 1200; // ms between bites at night
+VM.BEE_CHANCE = 0.3;          // chance that hunting in the jungle upsets a bees' nest
+VM.BEE_SPEED = 128;           // the swarm flies a little slower than you walk (150), faster than a hungry villager (90)
+VM.BEE_STING_FOOD = 6;        // food lost per sting
+VM.BEE_SECONDS = 60;          // they give up after this long
+VM.GARDEN_REGROW_MS = 3 * 60 * 1000; // vegetables eaten by an elephant grow back after 3 minutes
 
 // First jobs that teach the village. The yellow arrow points to the next one.
 VM.JOBS = [

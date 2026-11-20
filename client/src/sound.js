@@ -86,6 +86,26 @@ VM.sound = {
     src.start(t, Math.random()); src.stop(t + dur + 0.05);
   },
 
+  // an elephant's trumpet: a brassy blast that jumps up, wobbles and breaks, with breath noise
+  trumpet(vol) {
+    if (!this.ready()) return;
+    const c = this.ctx, t = c.currentTime, dur = 1.25;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 1.4;
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.08); g.gain.setValueAtTime(vol, t + 0.75); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    bp.connect(g); g.connect(this.master);
+    const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 9; lg.gain.value = 28; lfo.connect(lg);
+    [1, 1.5, 2.02].forEach((m, k) => {
+      const o = c.createOscillator(), og = c.createGain(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(330 * m, t); o.frequency.exponentialRampToValueAtTime(620 * m, t + 0.18);
+      o.frequency.setValueAtTime(620 * m, t + 0.7); o.frequency.exponentialRampToValueAtTime(470 * m, t + dur);
+      lg.connect(o.frequency); og.gain.value = [0.6, 0.3, 0.2][k]; o.connect(og); og.connect(bp);
+      o.start(t); o.stop(t + dur + 0.05);
+    });
+    lfo.start(t); lfo.stop(t + dur + 0.05);
+    this.noise(dur, { filter: 'bandpass', freq: 1800, q: 0.7, vol: vol * 0.25 });
+  },
+
   // ------------------------------------------------------------------ effects
   play(name) {
     if (!this.ready()) return;
@@ -122,10 +142,11 @@ VM.sound = {
         this.tone(900, 0.5, { vol: 0.1, type: 'sawtooth', f2: 600, delay: 0.2 });
         break;
       case 'night': this.tone(196, 2.5, { vol: 0.2, attack: 0.05 }); this.tone(294, 2.5, { vol: 0.08, attack: 0.05 }); break; // a low gong
-      case 'elephant': // a trumpet far away
-        this.tone(260, 1.1, { vol: 0.12, type: 'sawtooth', f2: 520, attack: 0.15 });
-        this.tone(390, 1.0, { vol: 0.06, type: 'square', f2: 700, attack: 0.15 });
-        break;
+      case 'elephant': this.trumpet(0.12); break;   // a trumpet far away
+      case 'trumpet': this.trumpet(0.45); break;    // an elephant charging close by
+      case 'buzz': this.tone(205, 0.55, { vol: 0.05, type: 'sawtooth', f2: 225, attack: 0.08 }); this.tone(212, 0.55, { vol: 0.04, type: 'sawtooth', f2: 198, attack: 0.08 }); break; // the swarm
+      case 'sting': this.tone(1400, 0.07, { vol: 0.12, type: 'square', f2: 900 }); break;
+      case 'stomp': this.tone(55, 0.35, { vol: 0.35, f2: 35 }); this.noise(0.25, { freq: 160, vol: 0.25 }); break; // a heavy footstep
       case 'gun': this.noise(0.25, { freq: 2500, vol: 0.6 }); this.tone(80, 0.4, { vol: 0.5, f2: 40 }); this.noise(0.8, { freq: 600, vol: 0.15, delay: 0.1 }); break;
       case 'splash': this.noise(0.6, { filter: 'bandpass', freq: 900, q: 0.8, vol: 0.4 }); this.tone(300, 0.25, { vol: 0.12, f2: 120 }); break;
       case 'reveal': this.tone(55, 2.2, { vol: 0.5, attack: 0.02 }); this.noise(1.2, { freq: 200, vol: 0.3 }); break; // a deep boom

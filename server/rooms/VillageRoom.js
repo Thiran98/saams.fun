@@ -149,6 +149,15 @@ class VillageRoom extends Room {
       const id = 'd' + (++this.dropCount || (this.dropCount = 1));
       s.drops.set(id, JSON.stringify({ x: Math.round(Number(m.x) || p.x), y: Math.round(Number(m.y) || p.y), by: p.name, items }));
     });
+    // a swarm of bees chasing someone: everyone sees it (it stings whoever it reaches)
+    this.onMessage('bees', (client, m) => {
+      const s = this.state, p = s.players.get(client.sessionId);
+      if (!p || s.stage !== 'playing' || !m) return;
+      const now = Date.now(); this.beesAt = this.beesAt || new Map();
+      if (m.on && now - (this.beesAt.get(client.sessionId) || 0) < 150) return; // at most about 6 a second
+      this.beesAt.set(client.sessionId, now);
+      this.broadcast('bees', { id: client.sessionId, name: p.name, on: !!m.on, x: Math.round(Number(m.x) || 0), y: Math.round(Number(m.y) || 0) }, { except: client });
+    });
     this.onMessage('pickup', (client, m) => {
       const s = this.state, p = s.players.get(client.sessionId), id = m && String(m.id || '');
       const raw = id && s.drops.get(id);

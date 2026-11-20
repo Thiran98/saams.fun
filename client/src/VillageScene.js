@@ -357,10 +357,13 @@ class VillageScene extends Phaser.Scene {
     this.bots.forEach((b) => {
       if (this.drowning && this.drowning.helper === b) return;
       if (this.trading && this.trading.sprite === b) { b.setVelocity(0, 0); this.walkAnim(b, 0, 0); return; }
+      if (b.beeFrom && time < b.beeUntil) { const ax = b.x - b.beeFrom.x, ay = b.y - b.beeFrom.y, ad = Math.hypot(ax, ay) || 1; b.setVelocity(ax / ad * 120, ay / ad * 120); this.walkAnim(b, ax, ay); return; } // stung: run away
       this.wander(b, time, VM.BOT_SPEED);
     });
     this.animals.forEach((a) => this.wander(a, time, a.speed));
     this.updateElephants(time);
+    this.updateBees(time, delta);
+    this.updateOtherBees(time, delta);
     this.updateTractor();
     this.updateRescue(time);
     if (this.trading && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.trading.sprite.x, this.trading.sprite.y) > 70) VM.ui.closeTrade();
@@ -574,7 +577,7 @@ class VillageScene extends Phaser.Scene {
     const A = VM.ART;
     const e = this.physics.add.sprite(x, y, 'elephant').setOrigin(0.5, 1).setScale(1 / A);
     e.body.setSize(50 * A, 10 * A).setOffset(20 * A, 58 * A);
-    e.home = home;
+    e.home = home || { x: this.world.elephantStarts[0].x + 80, y: this.world.elephantStarts[0].y };
     e.alert = this.add.image(e.x, e.y - 40, 'alert').setScale(1 / A).setDepth(100003);
     e.nextTrample = 0;
     this.elephants.push(e);
@@ -584,6 +587,7 @@ class VillageScene extends Phaser.Scene {
   spawnElephants() {
     const starts = this.world.elephantStarts;
     const staying = this.elephants.filter((e) => !e.leaving && !e.inGarden).length; // left over from last night
+    VM.sound.play('elephant');   // they trumpet as they come out of the jungle
     for (let i = Math.min(staying, 3); i < VM.ELEPHANTS_PER_NIGHT; i++) {
       const p = starts[i % starts.length];
       const e = this.makeElephant(p.x + i * 24, p.y + (i % 2) * 40, { x: p.x + 80, y: p.y });
@@ -616,6 +620,11 @@ class VillageScene extends Phaser.Scene {
     const S = VM.TILE;
     if (e.inGarden) { const g = e.inGarden; e.target = { x: g.x0 + Math.random() * (g.x1 - g.x0), y: g.y0 + Math.random() * (g.y1 - g.y0) }; return; }
     if (e.roams) { e.target = { x: (10 + Math.random() * 52) * S, y: (9 + Math.random() * 40) * S }; return; }
+    // by day an elephant still in the village goes for the vegetable gardens half of the time
+    if (!this.isNight && Math.random() < 0.5) {
+      const gs = (this.houseObjs || []).map((ho) => ho.h && ho.h.garden).filter((g) => g && !this.fencedAt(g.x, g.y));
+      if (gs.length) { const g = gs[Math.floor(Math.random() * gs.length)]; e.target = { x: (g.x + Math.random() * g.w) * S, y: (g.y + Math.random() * g.h) * S + 8 }; return; }
+    }
     const p = this.world.paddy;
     for (let i = 0; i < 8; i++) { // never aim inside an electric fence
       e.target = { x: (p.x0 + 1 + Math.random() * (p.x1 - p.x0 - 2)) * S, y: (p.y0 + 1 + Math.random() * (p.y1 - p.y0 - 2)) * S };
@@ -632,7 +641,7 @@ class VillageScene extends Phaser.Scene {
     const p = this.player;
     this.elephants = this.elephants.filter((e) => {
       let goal = e.leaving ? e.home : e.target;
-      let speed = e.leaving ? 95 : e.inGarden ? 12 : 32;
+      let speed = e.leaving ? 95 : e.inGarden ? 12 : VM.ELEPHANT_WALK;
       // while it stands in your garden, nobody can pick vegetables there
       if (e.inGarden && !e.leaving) {
         const g = this.me.house.garden;
@@ -640,12 +649,17 @@ class VillageScene extends Phaser.Scene {
       }
       // an elephant that sees someone outside at night charges at them
       const toPlayer = Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y);
-      if (!e.leaving && !e.inGarden && this.isNight && this.playerOutside() && toPlayer < VM.ELEPHANT_SEES) {
+      const sees = toPlayer < VM.ELEPHANT_SEES || (e.charging && toPlayer < VM.ELEPHANT_SEES * 1.6 && time < e.chaseUntil);
+      if (!e.leaving && !e.inGarden && this.isNight && this.playerOutside() && sees) {
         goal = { x: p.x, y: p.y };
-        speed = 72;
-        if (!e.charging) { e.charging = true; VM.ui.toast('An elephant has seen you! Run home or scare it away (E)!'); }
+        speed = VM.ELEPHANT_CHARGE;
+        if (toPlayer < VM.ELEPHANT_SEES) e.chaseUntil = time + VM.ELEPHANT_MEMORY;   // it keeps chasing a little after losing sight of you
+        if (!e.charging) { e.charging = true; VM.sound.play('trumpet'); this.cameras.main.shake(250, 0.004); VM.ui.toast('🐘 An elephant has seen you! Run home or scare it away (E)!'); }
         if (toPlayer < VM.ELEPHANT_KILLS) this.killPlayer('An elephant trampled you!');
       } else e.charging = false;
+      // you hear its heavy steps when it is near (louder and faster while it charges)
+      if (!e.leaving && toPlayer < 300 && time > (e.nextStep || 0)) { e.nextStep = time + (e.charging ? 380 : 750); if (toPlayer < 180 || e.charging) VM.sound.play('stomp'); }
+      if (!e.leaving && !e.charging && toPlayer < 400 && time > (e.nextCall || 0)) { if (e.nextCall) VM.sound.play(toPlayer < 200 ? 'trumpet' : 'elephant'); e.nextCall = time + 9000 + Math.random() * 12000; }
       const dx = goal.x - e.x, dy = goal.y - e.y, d = Math.hypot(dx, dy) || 1;
       if (e.leaving && d < 20) { e.alert.destroy(); e.destroy(); return false; }
       if (!e.leaving && !e.charging && d < 10) this.pickElephantTarget(e);
@@ -655,11 +669,16 @@ class VillageScene extends Phaser.Scene {
       e.alert.setPosition(e.x, e.y - 40 + Math.sin(time / 200) * 2).setVisible(!e.leaving);
       // trample the paddy under its feet
       if (!e.leaving && time > e.nextTrample) {
-        e.nextTrample = time + 1200;
-        const tx = Math.floor(e.x / VM.TILE), ty = Math.floor((e.y - 4) / VM.TILE);
+        e.nextTrample = time + (this.isNight ? VM.ELEPHANT_EAT_NIGHT : VM.ELEPHANT_EAT_DAY); // by day it eats three times faster
+        const tx = Math.floor(e.x / VM.TILE), ty = Math.floor((e.y - 4) / VM.TILE), here = this.tileAt(tx, ty);
         if (this.fencedAt(tx, ty)) { // the electric fence zaps it: it turns away
           if (!e.leaving && time > (e.nextZap || 0)) { e.nextZap = time + 2500; this.zap(e); this.pickElephantTarget(e); }
-        } else if (this.tileAt(tx, ty) === VM.T.PADDY) { this.setTile(tx, ty, VM.T.STUBBLE); this.regrow.push({ x: tx, y: ty, at: time + VM.PADDY_REGROW_MS }); } // eaten: 6 minutes to grow back
+        } else if (here === VM.T.PADDY) { this.setTile(tx, ty, VM.T.STUBBLE); this.regrow.push({ x: tx, y: ty, at: time + VM.PADDY_REGROW_MS }); } // eaten: 6 minutes to grow back
+        else if (here === VM.T.GARDEN) { // vegetables eaten: bare for 3 minutes
+          this.setTile(tx, ty, VM.T.STUBBLE); this.regrow.push({ x: tx, y: ty, at: time + VM.GARDEN_REGROW_MS, tile: VM.T.GARDEN });
+          const ow = this.gardenOwner.get(tx + ',' + ty);
+          if (ow && ow.isPlayer && time > (this.eatenNote || 0)) { this.eatenNote = time + 15000; VM.ui.toast('🐘 An elephant is eating your vegetables! Chase it away (E with 2 people, or the tractor).'); }
+        }
       }
       return true;
     });
@@ -942,6 +961,7 @@ class VillageScene extends Phaser.Scene {
     }
     // the jungle: hunt for wild meat
     if (here === VM.T.FOREST && !this.ghost) return { name: 'hunt', key: 'hunt', task: VM.task('hunt'), tile: { x: tx, y: ty } };
+    if (here === VM.T.STUBBLE && this.gardenOwner.has(tx + ',' + ty)) return { name: 'eaten', key: 'eaten', tile: { x: tx, y: ty }, task: { label: 'An elephant ate these vegetables', seconds: 0, done: () => 'An elephant ate the vegetables here. They grow back in 3 minutes.' } };
     if (here === VM.T.GARDEN) {
       const owner = this.gardenOwner.get(tx + ',' + ty) || null;
       if (owner && owner.deadLand) return { name: 'deadLand', key: 'deadLand', tile: { x: tx, y: ty }, task: { label: 'Birds ate everything here', seconds: 0, done: () => 'Birds ate all the vegetables. Nothing grows here any more.' } };
@@ -1066,7 +1086,7 @@ class VillageScene extends Phaser.Scene {
   updateRegrow(time) {
     this.regrow = this.regrow.filter((g) => {
       if (time < g.at) return true;
-      this.setTile(g.x, g.y, VM.T.PADDY);
+      this.setTile(g.x, g.y, g.tile || VM.T.PADDY);
       return false;
     });
   }
@@ -1442,3 +1462,94 @@ class VillageScene extends Phaser.Scene {
     VM.ui.openTrade(owner, () => { this.trading = null; });
   }
 }
+
+// ---- bees: a swarm from the jungle chases you until you hide in any house
+Object.assign(VillageScene.prototype, {
+  startBees() {
+    const p = this.player, now = this.time.now;
+    this.bees = { x: p.x + 50, y: p.y - 40, until: now + VM.BEE_SECONDS * 1000, nextSting: now + 1500, nextBuzz: 0 };
+    if (!this.beeG) this.beeG = this.add.graphics().setDepth(100002);
+    VM.sound.play('buzz');
+    VM.ui.banner('Bees!', 'You disturbed a bees\' nest!', 'Run to the village and hide in anyone\'s house: just reach a house door. Every sting costs food.', true);
+  },
+  stopBees(message) {
+    if (this.bees && this.online) VM.net.send('bees', { on: false });
+    this.bees = null;
+    if (this.beeG) this.beeG.clear();
+    if (message) VM.ui.toast(message);
+  },
+  updateBees(time, delta) {
+    const b = this.bees; if (!b) return;
+    const p = this.player;
+    if (this.ghost || this.sleeping || (this.online && this.stage && this.stage !== 'playing')) return this.stopBees();
+    if (time > b.until) return this.stopBees('The bees gave up and flew back to the jungle.');
+    // hiding: reach any house door
+    for (const ho of this.houseObjs || []) {
+      const h = ho.h; if (!h) continue;
+      if (Math.abs(p.x - h.x) < 40 && p.y > h.y - 10 && p.y < h.y + 46) {
+        const who = ho.owner ? (ho.owner.isPlayer ? 'your' : ho.owner.name + "'s") : 'an empty';
+        return this.stopBees('🏠 You hid in ' + who + ' house. The bees flew away!');
+      }
+    }
+    const dt = Math.min(0.05, (delta || 16) / 1000);
+    const dx = p.x - b.x, dy = (p.y - 20) - b.y, d = Math.hypot(dx, dy) || 1;
+    b.x += dx / d * VM.BEE_SPEED * dt; b.y += dy / d * VM.BEE_SPEED * dt;
+    if (time > b.nextBuzz) { b.nextBuzz = time + 520; if (d < 400) VM.sound.play('buzz'); }
+    if (d < 34 && time > b.nextSting) {
+      b.nextSting = time + 1100;
+      VM.state.food = Math.max(0, VM.state.food - VM.BEE_STING_FOOD); VM.ui.food(VM.state.food);
+      VM.sound.play('sting'); this.cameras.main.shake(120, 0.003);
+      if (time > (b.nextNote || 0)) { b.nextNote = time + 5000; VM.ui.toast('🐝 Ouch! The bees are stinging you (-' + VM.BEE_STING_FOOD + ' food each). Hide in a house!'); }
+    }
+    // the swarm: little yellow-and-black dots buzzing round a centre
+    const g = this.beeG; g.clear();
+    for (let i = 0; i < 16; i++) {
+      const a = time / 90 + i * 2.1, r = 8 + (i % 4) * 5;
+      const x = b.x + Math.cos(a * (1 + i % 3 * 0.3)) * r, y = b.y + Math.sin(a * 1.3 + i) * r * 0.7;
+      g.fillStyle(0x1c1c1c); g.fillCircle(x, y, 2.2); g.fillStyle(0xffc21a); g.fillCircle(x + 1, y, 1.4);
+    }
+    // everyone near the swarm is attacked too: computer villagers run, other players see it on their screen
+    for (const bot of this.bots || []) {
+      if (bot.active && bot.visible !== false && Phaser.Math.Distance.Between(bot.x, bot.y, b.x, b.y + 20) < 60) {
+        if (!(time < bot.beeUntil) && bot.label) VM.ui.toast('🐝 The bees are attacking ' + (bot.owner ? bot.owner.name : 'a villager') + ' too!');
+        bot.beeFrom = { x: b.x, y: b.y }; bot.beeUntil = time + 2500;
+      }
+    }
+    if (this.online && time > (b.nextSend || 0)) { b.nextSend = time + 200; VM.net.send('bees', { on: true, x: Math.round(b.x), y: Math.round(b.y) }); }
+  },
+  // someone else's swarm (online)
+  remoteBees(m) {
+    if (!this.otherBees) this.otherBees = new Map();
+    if (!m.on) { this.otherBees.delete(m.id); return; }
+    let o = this.otherBees.get(m.id);
+    if (!o) {
+      o = { x: m.x, y: m.y, name: m.name, nextSting: 0 }; this.otherBees.set(m.id, o);
+      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y) < 500) VM.ui.toast('🐝 ' + m.name + ' brought angry bees from the jungle! Stay away or hide in a house.');
+    }
+    o.tx = m.x; o.ty = m.y; o.seen = this.time.now;
+  },
+  updateOtherBees(time, delta) {
+    if (!this.otherBees || !this.otherBees.size) { if (this.otherBeeG) this.otherBeeG.clear(); return; }
+    if (!this.otherBeeG) this.otherBeeG = this.add.graphics().setDepth(100002);
+    const g = this.otherBeeG, p = this.player, k = Math.min(1, (delta || 16) / 120);
+    g.clear();
+    for (const [id, o] of this.otherBees) {
+      if (time - o.seen > 2500) { this.otherBees.delete(id); continue; }
+      o.x += (o.tx - o.x) * k; o.y += (o.ty - o.y) * k;
+      for (let i = 0; i < 16; i++) {
+        const a = time / 90 + i * 2.1, r = 8 + (i % 4) * 5, x = o.x + Math.cos(a * (1 + i % 3 * 0.3)) * r, y = o.y + Math.sin(a * 1.3 + i) * r * 0.7;
+        g.fillStyle(0x1c1c1c); g.fillCircle(x, y, 2.2); g.fillStyle(0xffc21a); g.fillCircle(x + 1, y, 1.4);
+      }
+      const d = Phaser.Math.Distance.Between(p.x, p.y - 20, o.x, o.y);
+      if (d < 400 && time > (o.nextBuzz || 0)) { o.nextBuzz = time + 600; VM.sound.play('buzz'); }
+      // it stings me too, unless I am safe (in bed, a ghost, in a boat, or at a house door)
+      const atDoor = (this.houseObjs || []).some((ho) => ho.h && Math.abs(p.x - ho.h.x) < 40 && p.y > ho.h.y - 10 && p.y < ho.h.y + 46);
+      if (d < 40 && time > o.nextSting && !this.ghost && !this.sleeping && !this.inBoat && !atDoor) {
+        o.nextSting = time + 1100;
+        VM.state.food = Math.max(0, VM.state.food - VM.BEE_STING_FOOD); VM.ui.food(VM.state.food);
+        VM.sound.play('sting'); this.cameras.main.shake(120, 0.003);
+        if (time > (o.nextNote || 0)) { o.nextNote = time + 5000; VM.ui.toast('🐝 ' + o.name + "'s bees are stinging you! Hide in a house!"); }
+      }
+    }
+  },
+});

@@ -524,7 +524,30 @@ VM.view3d = (function () {
 
   // ---- the guide arrow, elephant alerts, smoke
   let arrow3 = null, smoke3 = [];
+  const swarms3 = [];
+  function makeSwarm() {
+      const bees3 = new THREE.Group();
+      for (let i = 0; i < 18; i++) {
+        const bee = new THREE.Group();
+        bee.add(sph(0.05, '#ffc21a', 0, 0, 0, 1.4, 1, 1)); bee.add(box(0.03, 0.105, 0.105, '#1c1c1c', 0, 0, 0));
+        const w = mesh(new THREE.SphereGeometry(0.035, 6, 4), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.7 }), 0, 0.05, 0); w.scale.set(1, 0.3, 1.6); bee.add(w);
+        bees3.add(bee);
+      }
+      scene3.add(bees3);
+      return bees3;
+  }
+  function syncBees(now) {
+    const list = [sceneP.bees, ...(sceneP.otherBees ? sceneP.otherBees.values() : [])].filter(Boolean);
+    while (swarms3.length < list.length) swarms3.push(makeSwarm());
+    swarms3.forEach((s, i) => { s.visible = i < list.length; });
+    list.forEach((b, j) => {
+    const bees3 = swarms3[j];
+    bees3.position.set(U(b.x), 1.0, U(b.y) + 0.4);
+    bees3.children.forEach((bee, i) => { const a = now / 90 + i * 2.1, r = 0.25 + (i % 4) * 0.13; bee.position.set(Math.cos(a * (1 + i % 3 * 0.3)) * r, Math.sin(now / 70 + i) * 0.25, Math.sin(a * 1.3 + i) * r); bee.rotation.y = -a; });
+    });
+  }
   function syncHelpers(now, dt) {
+    syncBees(now);
     // the yellow arrow that points to your next job
     const gd = sceneP.guide;
     if (!arrow3) {

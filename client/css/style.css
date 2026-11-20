@@ -745,7 +745,7 @@ body.is-touch #menubtn { bottom: auto; top: 50%; }
 #swapin-yes:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* injured */
-#injuredbar { position: fixed; left: 50%; top: 60px; transform: translateX(-50%); z-index: 24; padding: 8px 16px; border-radius: 999px; background: #8c1015; color: #fff; font-weight: 800; animation: pulse 1s ease-in-out infinite; }
+#injuredbar { position: fixed; left: 50%; top: 60px; transform: translateX(-50%); z-index: 24; padding: 8px 16px; border-radius: 999px; background: #8c1015; color: #fff; font-weight: 800; }
 #injuredbar[hidden] { display: none; }
 
 /* jobs: 3 sets of 3 */
