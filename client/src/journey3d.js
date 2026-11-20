@@ -182,7 +182,7 @@ VM.lobby3d = (function () {
       document.querySelectorAll('#mode-pick .mode-card b').forEach((b, i) => { b.textContent = (i ? '🎭 ' : '🌾 ') + b.textContent.replace(/^[^A-Za-z]+/, ''); });
       canvas = document.createElement('canvas'); canvas.className = 'lg-3d'; holder.appendChild(canvas);
       try { r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); } catch (e) { canvas.remove(); holder.classList.remove('is-3d'); return; }
-      const phone = document.body.classList.contains('is-touch'); r.setPixelRatio(Math.min(window.devicePixelRatio || 1, phone ? 1 : 2)); r.shadowMap.enabled = !phone; r.shadowMap.type = THREE.PCFSoftShadowMap;
+      const phone = document.body.classList.contains('is-touch'); r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); r.shadowMap.enabled = !phone; r.shadowMap.type = THREE.PCFSoftShadowMap;
       scene = new THREE.Scene();
       cam = new THREE.PerspectiveCamera(32, 2, 0.5, 100);
       scene.add(new THREE.HemisphereLight('#ffffff', '#6f9a50', 0.62));
@@ -244,7 +244,7 @@ VM.journey3d = (function () {
     canvas = document.createElement('canvas'); canvas.className = 'journey-3d';
     J.el.insertBefore(canvas, J.el.firstChild.nextSibling);
     r = new THREE.WebGLRenderer({ canvas, antialias: true });
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, document.body.classList.contains('is-touch') ? 1 : 2));
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     r.shadowMap.enabled = !document.body.classList.contains('is-touch'); r.shadowMap.type = THREE.PCFSoftShadowMap;
     scene = new THREE.Scene();
     scene.fog = new THREE.Fog('#bfe6fa', 50, 130);

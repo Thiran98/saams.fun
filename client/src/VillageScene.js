@@ -364,6 +364,7 @@ class VillageScene extends Phaser.Scene {
     this.updateElephants(time);
     this.updateBees(time, delta);
     this.updateOtherBees(time, delta);
+    this.updateHives(time);
     this.updateTractor();
     this.updateRescue(time);
     if (this.trading && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.trading.sprite.x, this.trading.sprite.y) > 70) VM.ui.closeTrade();
@@ -602,6 +603,7 @@ class VillageScene extends Phaser.Scene {
     if (this.elephants.some((e) => e.inGarden && !e.leaving)) return;
     const me = this.online && VM.net.myState();
     if (me && me.fenceGarden) { VM.ui.toast('⚡ An elephant came for your garden, but your electric fence zapped it away!'); return; }
+    if ((me && me.hive) || (!this.online && this.myHive)) { VM.ui.toast('🐝 An elephant came for your garden, but your bees chased it away!'); return; }
     const g = this.me.house.garden, S = VM.TILE;
     const c = this.me.gardenCentre;
     const jungle = this.world.elephantStarts[1];
@@ -1274,6 +1276,7 @@ class VillageScene extends Phaser.Scene {
 
   morning() {
     if (this.sleeping) this.wakeUp(false);
+    if (!this.online && this.myHive) this.myHive--;
     // practice mode: Aswasuma when you wake up (online the server sends it to everyone)
     if (!this.online && !this.ghost) this.time.delayedCall(2500, () => { const amount = VM.ASWASUMA[0] + Math.floor(Math.random() * (VM.ASWASUMA[1] - VM.ASWASUMA[0] + 1)); VM.give('money', amount); VM.sound.play('loot'); VM.aswasuma(amount); });
     if (this.ghost && !this.online) {
@@ -1472,6 +1475,46 @@ Object.assign(VillageScene.prototype, {
     VM.sound.play('buzz');
     VM.ui.banner('Bees!', 'You disturbed a bees\' nest!', 'Run to the village and hide in anyone\'s house: just reach a house door. Every sting costs food.', true);
   },
+  // you reached your own house: the bees settle in a hive there and guard it for 2 nights
+  keepBees() {
+    const mine = this.online && VM.net.myState();
+    if ((mine && mine.hive) || (!this.online && this.myHive)) return this.stopBees('🏠 You hid at home. Your hive already has bees, so these flew away.');
+    if (this.online) VM.net.send('keepBees'); else this.myHive = 2;
+    VM.sound.play('task');
+    this.stopBees();
+    VM.ui.banner('Bees', 'You kept the bees!', 'They made a hive at your house. For 2 nights they chase away elephants and thieves who come near it.');
+  },
+  // the houses guarded by a hive (door positions)
+  hiveSpots() {
+    const out = [];
+    const st = this.online && VM.net.room && VM.net.room.state;
+    if (st) st.players.forEach((p) => { if (p.hive) { const ho = this.houseObjs[p.house]; if (ho && ho.h) out.push({ x: ho.h.x, y: ho.h.y, mine: p === VM.net.myState() }); } });
+    else if (this.myHive) { const ho = (this.houseObjs || []).find((o) => o.owner && o.owner.isPlayer); if (ho && ho.h) out.push({ x: ho.h.x, y: ho.h.y, mine: true }); }
+    return out;
+  },
+  // draw the hives, and chase elephants away from them
+  updateHives(time) {
+    const hs = this.hives = this.hiveSpots();
+    if (!this.hiveG) this.hiveG = this.add.graphics();
+    const g = this.hiveG; g.clear();
+    for (const h of hs) {
+      const x = h.x + 36, y = h.y - 4;
+      g.setDepth(y + 2);
+      g.fillStyle(0x6b4a2a); g.fillRect(x - 1, y - 30, 2, 12);
+      [[0, -14, 9], [0, -7, 11], [0, 0, 8]].forEach(([dx, dy, r]) => { g.fillStyle(0xd9a440); g.fillEllipse(x + dx, y + dy, r * 2, r * 1.3); g.fillStyle(0xb98328); g.fillEllipse(x + dx, y + dy + r * 0.35, r * 1.8, r * 0.35); });
+      g.fillStyle(0x3a2510); g.fillCircle(x, y - 3, 2.2);
+      for (let i = 0; i < 6; i++) { const a = time / 140 + i * 1.05; const bx = x + Math.cos(a) * 16, by = y - 8 + Math.sin(a * 1.4) * 8; g.fillStyle(0x1c1c1c); g.fillCircle(bx, by, 1.8); g.fillStyle(0xffc21a); g.fillCircle(bx + 0.8, by, 1.1); }
+    }
+    if (!hs.length) return;
+    for (const e of this.elephants) {
+      if (e.leaving) continue;
+      const h = hs.find((s) => Phaser.Math.Distance.Between(e.x, e.y, s.x, s.y) < 120);
+      if (!h) continue;
+      this.scareElephant(e);
+      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y) < 500) VM.sound.play('trumpet');
+      if (h.mine) VM.ui.toast('🐝 Your bees chased an elephant away from your house!');
+    }
+  },
   stopBees(message) {
     if (this.bees && this.online) VM.net.send('bees', { on: false });
     this.bees = null;
@@ -1487,7 +1530,8 @@ Object.assign(VillageScene.prototype, {
     for (const ho of this.houseObjs || []) {
       const h = ho.h; if (!h) continue;
       if (Math.abs(p.x - h.x) < 40 && p.y > h.y - 10 && p.y < h.y + 46) {
-        const who = ho.owner ? (ho.owner.isPlayer ? 'your' : ho.owner.name + "'s") : 'an empty';
+        if (ho.owner && ho.owner.isPlayer) return this.keepBees();
+        const who = ho.owner ? ho.owner.name + "'s" : 'an empty';
         return this.stopBees('🏠 You hid in ' + who + ' house. The bees flew away!');
       }
     }

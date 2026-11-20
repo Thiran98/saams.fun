@@ -58,11 +58,12 @@ VM.view3d = (function () {
     const wrap = document.createElement('div');
     wrap.id = 'view3d';
     document.body.insertBefore(wrap, document.body.firstChild);
-    try { renderer = new THREE.WebGLRenderer({ antialias: !document.body.classList.contains('is-touch') }); }
+    const weakPhone = document.body.classList.contains('is-touch') && (navigator.deviceMemory || 4) <= 2; // only very small phones skip edge smoothing
+    try { renderer = new THREE.WebGLRenderer({ antialias: !weakPhone, powerPreference: 'high-performance' }); }
     catch (e) { console.warn('3D village could not start, using the flat village', e); wrap.remove(); fallback(); return; }
     renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('3D lost: flat village'); fallback(); });
     const touch = document.body.classList.contains('is-touch');
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1 : 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); // sharp on phones and PCs; lowered by itself below if the phone is slow
     renderer.setSize(innerWidth, innerHeight);
     renderer.shadowMap.enabled = !touch; // phones: no shadows (saves a lot of graphics memory)
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -141,9 +142,9 @@ VM.view3d = (function () {
   }
   function buildGround() {
     const W = VM.MAP_W, H = VM.MAP_H;
-    const px = document.body.classList.contains('is-touch') ? 20 : 32; // phones: a lighter ground picture
+    const px = document.body.classList.contains('is-touch') ? 28 : 40; // ground picture detail (phones a little lighter)
     groundCanvas = document.createElement('canvas'); groundCanvas.width = W * px; groundCanvas.height = H * px;
-    groundTex = new THREE.CanvasTexture(groundCanvas); groundTex.magFilter = THREE.NearestFilter;
+    groundTex = new THREE.CanvasTexture(groundCanvas); groundTex.magFilter = THREE.LinearFilter; groundTex.minFilter = THREE.LinearMipmapLinearFilter; // smooth, not blocky
     groundTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     paintGround();
     ground = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: groundTex }));
@@ -546,8 +547,31 @@ VM.view3d = (function () {
     bees3.children.forEach((bee, i) => { const a = now / 90 + i * 2.1, r = 0.25 + (i % 4) * 0.13; bee.position.set(Math.cos(a * (1 + i % 3 * 0.3)) * r, Math.sin(now / 70 + i) * 0.25, Math.sin(a * 1.3 + i) * r); bee.rotation.y = -a; });
     });
   }
+  const hives3 = new Map();
+  function syncHives(now) {
+    const list = sceneP.hives || [], seen = new Set();
+    for (const h of list) {
+      const key = h.x + ',' + h.y; seen.add(key);
+      let g = hives3.get(key);
+      if (!g) {
+        g = new THREE.Group();
+        g.add(box(0.07, 1.3, 0.07, '#6b4a2a', 0, 0.65, 0)); g.add(box(0.5, 0.06, 0.06, '#6b4a2a', 0.22, 1.28, 0));
+        [[0.98, 0.2], [0.82, 0.26], [0.66, 0.2]].forEach(([y, r]) => { g.add(sph(r, '#d9a440', 0.42, y, 0, 1, 0.65, 1)); g.add(mesh(new THREE.TorusGeometry(r * 0.95, 0.02, 4, 16), '#b98328', 0.42, y - 0.04, 0)).children.slice(-1)[0].rotation.x = Math.PI / 2; });
+        g.add(sph(0.05, '#3a2510', 0.42, 0.74, 0.2));
+        const bees = new THREE.Group();
+        for (let i = 0; i < 7; i++) { const b = new THREE.Group(); b.add(sph(0.04, '#ffc21a', 0, 0, 0, 1.4, 1, 1)); b.add(box(0.025, 0.085, 0.085, '#1c1c1c', 0, 0, 0)); bees.add(b); }
+        g.add(bees); g.userData.bees = bees;
+        g.position.set(U(h.x) + 1.15, 0, U(h.y) + 0.2);
+        g.traverse((m) => { m.castShadow = true; });
+        scene3.add(g); hives3.set(key, g);
+      }
+      g.userData.bees.children.forEach((b, i) => { const a = now / 160 + i * 0.9; b.position.set(0.42 + Math.cos(a) * 0.45, 0.85 + Math.sin(a * 1.6) * 0.2, Math.sin(a) * 0.45); });
+    }
+    for (const [k, g] of hives3) if (!seen.has(k)) { scene3.remove(g); hives3.delete(k); }
+  }
   function syncHelpers(now, dt) {
     syncBees(now);
+    syncHives(now);
     // the yellow arrow that points to your next job
     const gd = sceneP.guide;
     if (!arrow3) {
@@ -909,9 +933,21 @@ VM.view3d = (function () {
     if (failed) return;
     try { update3d(dt); errors = 0; } catch (e) { console.warn('3D frame', e); if (++errors > 5) fallback(); }
   }
+  // a phone that cannot keep up (under ~28 frames a second): lower the sharpness a step, at most twice
+  const perf = { frames: 0, t0: 0, steps: 0 };
+  function watchSpeed(now) {
+    if (perf.steps >= 2 || !document.body.classList.contains('is-touch') || document.hidden) return;
+    if (!perf.t0) { perf.t0 = now; perf.frames = 0; return; }
+    perf.frames++;
+    if (now - perf.t0 < 4000) return;
+    const fps = perf.frames * 1000 / (now - perf.t0);
+    perf.t0 = now; perf.frames = 0;
+    if (fps < 28 && renderer.getPixelRatio() > 1) { perf.steps++; renderer.setPixelRatio(Math.max(1, renderer.getPixelRatio() - 0.4)); renderer.setSize(innerWidth, innerHeight); }
+  }
   function update3d(dt) {
     if (!ready || !sceneP || !sceneP.player) return;
     const now = performance.now();
+    watchSpeed(now);
     // which vegetable land is still for sale (online): repaint when that changes
     let sk = '';
     (sceneP.houseObjs || []).forEach((ho, i) => { if (ho.sprouts && ho.sprouts.visible) sk += i + ','; });

@@ -174,7 +174,11 @@ VM.TASKS = {
   steal: {
     label: 'Steal goods',
     seconds: 2.5,
-    check: (spot) => (spot.owner.remote || Object.values(spot.owner.inv).some((n) => n > 0) ? null : `${spot.owner.name}'s house has nothing to steal.`),
+    check: (spot) => {
+      const st = spot.owner.remote && VM.net.room && VM.net.room.state.players.get(spot.owner.id);
+      if (st && st.hive) { VM.state.food = Math.max(0, VM.state.food - VM.BEE_STING_FOOD); VM.ui.food(VM.state.food); VM.sound.play('sting'); return '🐝 Bees guard ' + spot.owner.name + "'s house! They stung you."; }
+      return spot.owner.remote || Object.values(spot.owner.inv).some((n) => n > 0) ? null : `${spot.owner.name}'s house has nothing to steal.`;
+    },
     done: (scene, spot) => {
       const o = spot.owner, taken = [];
       if (o.remote) { // online: the server decides (thieves: money for the purse; a villager is named)
