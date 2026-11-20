@@ -59,7 +59,7 @@ class VillageScene extends Phaser.Scene {
       });
     } else {
       const colours = Phaser.Utils.Array.Shuffle(VM.PLAYER_COLORS.slice());
-      const outfits = [VM.OUTFITS[0], ...Phaser.Utils.Array.Shuffle(VM.OUTFITS.slice(1))];
+      const outfits = Phaser.Utils.Array.Shuffle(VM.OUTFITS.slice()); // everyone, you too, gets a man or woman villager at random
       const homes = Phaser.Utils.Array.Shuffle(world.houses.map((h, i) => i));
       for (let i = 0; i < 1 + VM.BOT_COUNT; i++) {
         const o = { name: i === 0 ? 'You' : outfits[i].name, colour: colours[i], outfit: outfits[i], isPlayer: i === 0, money: VM.START_MONEY, houseIndex: homes[i], inv: {} };
@@ -1142,8 +1142,9 @@ class VillageScene extends Phaser.Scene {
   }
 
   changeClothes() {
-    this.outfitIndex = (this.outfitIndex + 1) % VM.OUTFITS.length;
-    const o = VM.OUTFITS[this.outfitIndex];
+    const kind = (this.player.outfit && this.player.outfit.kind) || 'man', same = VM.OUTFITS.filter((x) => x.kind === kind);
+    const o = same[(same.indexOf(this.player.outfit) + 1) % same.length];   // new clothes, still a man or a woman
+    this.outfitIndex = VM.OUTFITS.indexOf(o);
     this.player.outfit = o;
     this.player.anims.stop();
     this.player.setTexture('char-' + o.key, { down: 0, up: 3, side: 6 }[this.player.facing]);

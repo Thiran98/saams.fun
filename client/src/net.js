@@ -72,12 +72,13 @@ VM.net = {
     if (token) { try { room = await this.client.reconnect(token); } catch (e) { this.saveToken(null); } }
     code = how === 'public' ? 'PUBLIC' : String(code || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
     if (!room && how === 'join') {
-      try { room = await this.client.join('village', { name, outfit, code, v: VM.CLIENT_VERSION }); } catch (e) {
+      try { room = await this.client.join('village', { name, outfit, code, v: VM.CLIENT_VERSION, look: VM.myDamindu }); } catch (e) {
         if (e && /out of date/.test(e.message || '')) throw e;
         throw new Error('There is no bus with the code ' + code + ' (or it has already left).');
       }
     }
-    if (!room) room = await this.client.joinOrCreate('village', { name, outfit, code, v: VM.CLIENT_VERSION });
+    if (!room) room = await this.client.joinOrCreate('village', { name, outfit, code, v: VM.CLIENT_VERSION, look: VM.myDamindu });
+    else if (VM.myDamindu) this.send('look', VM.myDamindu);   // back in my old seat: keep my Damindu up to date
     try { sessionStorage.setItem('sams-gama-code', how === 'public' ? '' : code); } catch (e) { /* private mode */ }
     this.bind(room);
     await this.waitFor(() => this.myState(), 6000, 'The server did not send the village in time.');

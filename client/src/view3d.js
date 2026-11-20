@@ -25,6 +25,7 @@ VM.view3d = (function () {
   // ------------------------------------------------------------------ loading
   function loadThree() {
     if (window.THREE) return Promise.resolve(window.THREE);
+    if (VM.loadThree) return VM.loadThree();   // shared with the menu's Damindu preview (loaded once)
     return new Promise((res, rej) => {
       const s = document.createElement('script');
       s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
@@ -634,47 +635,28 @@ VM.view3d = (function () {
     tex.needsUpdate = true;
   }
   const sph = (r, c, x, y, z, sx, sy, sz) => { const o = mesh(new THREE.SphereGeometry(r, 14, 10), c, x, y, z); if (sx) o.scale.set(sx, sy, sz); return o; };
+  // which Damindu a villager is: mine (chosen on the menu), another player's (from the server), or random
+  function figureLook(s) {
+    let code = '';
+    if (s === sceneP.player) code = (sceneP.online && VM.net.myState() && VM.net.myState().look) || VM.myDamindu || '';
+    else if (s.owner && s.owner.remote && VM.net.room && VM.net.room.state) { const p = VM.net.room.state.players.get(s.owner.id); code = (p && p.look) || ''; }
+    const force = code ? VM.lookToForce(code) : null;
+    const key = force ? 'L' + code : 'O' + ((s.outfit && s.outfit.key) || 'villager');
+    return { key, seed: VM.villagerSeed(key), force };
+  }
   function makeFigure(s) {
-    const o = s.outfit || {}, g = new THREE.Group(), body = new THREE.Group();
-    const top = o.top || '#f6f3ea', bottom = o.bottom || '#3a5ab0', skin = '#f1d3aa', hair = '#1d1714';
-    const woman = o.kind === 'woman';
-    // little feet
-    body.add(sph(0.075, '#5a3a28', -0.08, 0.04, 0.03, 1, 0.6, 1.4)); body.add(sph(0.075, '#5a3a28', 0.08, 0.04, 0.03, 1, 0.6, 1.4));
-    // sarong or saree skirt: a soft bell shape, with a border stripe
-    body.add(mesh(new THREE.CylinderGeometry(0.15, 0.22, 0.3, 14), bottom, 0, 0.2, 0));
-    body.add(mesh(new THREE.CylinderGeometry(0.222, 0.225, 0.045, 14), o.trim || VM.shade(bottom, -0.25), 0, 0.07, 0));
-    // round chubby body (shirt / blouse)
-    body.add(sph(0.17, top, 0, 0.42, 0, 1, 0.95, 0.9));
-    if (woman) { const sash = mesh(new THREE.BoxGeometry(0.07, 0.36, 0.3), bottom, 0.05, 0.43, 0); sash.rotation.z = 0.6; body.add(sash); } // saree drape over the shoulder
-    else body.add(mesh(new THREE.BoxGeometry(0.03, 0.18, 0.01), VM.shade(top, -0.2), 0, 0.44, 0.155));                                  // shirt buttons line
-    // little arms
-    [-1, 1].forEach((sd) => { const arm = sph(0.06, top, sd * 0.18, 0.4, 0, 0.8, 1.5, 0.8); arm.rotation.z = sd * 0.25; body.add(arm); body.add(sph(0.045, skin, sd * 0.2, 0.3, 0)); });
-    // big round head
-    body.add(sph(0.24, skin, 0, 0.8, 0));
-    // hair: a rounded cap; women get a bun with flowers, men a small fringe
-    body.add(mesh(new THREE.SphereGeometry(0.255, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.1), hair, 0, 0.82, -0.015));
-    if (woman) {
-      body.add(sph(0.11, hair, 0, 0.86, -0.22));
-      [-0.07, 0, 0.07].forEach((x, i) => body.add(sph(0.035, i === 1 ? '#ffd23f' : (o.flower || '#fff7e8'), x, 0.95, -0.25)));
-    } else body.add(mesh(new THREE.BoxGeometry(0.3, 0.06, 0.08), hair, 0, 0.98, 0.17));
-    if (o.extra === 'hat') { body.add(mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.03, 16), '#d9b56a', 0, 1.02, 0)); body.add(mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.14, 12), '#d9b56a', 0, 1.1, 0)); }
-    if (o.extra === 'cap') { body.add(mesh(new THREE.SphereGeometry(0.25, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2.3), o.extraColor || '#d8443a', 0, 0.86, 0)); body.add(mesh(new THREE.BoxGeometry(0.22, 0.03, 0.16), o.extraColor || '#d8443a', 0, 0.92, 0.24)); }
-    if (o.extra === 'towel') { const t = mesh(new THREE.TorusGeometry(0.14, 0.035, 6, 14), o.extraColor || '#6f8fe0', 0, 0.58, 0); t.rotation.x = Math.PI / 2; body.add(t); }
-    if (o.extra === 'bag') { const b = mesh(new THREE.BoxGeometry(0.14, 0.16, 0.06), o.extraColor || '#b07a3a', -0.2, 0.32, 0.04); body.add(b); }
-    // face: shiny eyes, rosy cheeks, a small smile
-    [-0.085, 0.085].forEach((x) => {
-      body.add(sph(0.045, '#ffffff', x, 0.8, 0.2, 1, 1.15, 0.5));
-      body.add(sph(0.03, '#1b1410', x, 0.795, 0.22, 1, 1.15, 0.5));
-      body.add(sph(0.01, '#ffffff', x + 0.012, 0.81, 0.235));
-      body.add(sph(0.04, '#f08a8a', x * 1.5, 0.73, 0.19, 1, 0.6, 0.4));
-    });
-    const smile = mesh(new THREE.TorusGeometry(0.035, 0.008, 4, 10, Math.PI), '#6b2e22', 0, 0.71, 0.225); smile.rotation.z = Math.PI; body.add(smile);
+    const o = s.outfit || {}, g = new THREE.Group();
+    // this villager's Damindu: the player's own choice, or random (the same on every screen) for computer villagers
+    const fl = figureLook(s);
+    const built = VM.buildVillager(fl.seed, 0, fl.force);
+    const body = built.body;
+    body.userData.parts = built.parts;
     g.add(body);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.26, 0.33, 24), new THREE.MeshBasicMaterial({ color: (s.owner && s.owner.colour && s.owner.colour.hex) || '#fff', transparent: true, opacity: 0.85 }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; g.add(ring);
     const label = labelSprite(); label.position.y = 1.4; g.add(label);
-    body.children.forEach((c) => { c.material = c.material.clone(); c.material.userData.own = true; }); // own materials, so a ghost can fade alone
-    g.userData = { body, label, ring, lastX: s.x, lastY: s.y, face: 0 };
+    body.traverse((c) => { if (c.material) c.material.userData.own = true; }); // own materials (made per villager), so a ghost can fade alone
+    g.userData = { body, label, ring, lastX: s.x, lastY: s.y, face: 0, look: fl.key };
     scene3.add(g);
     return g;
   }
@@ -966,6 +948,7 @@ VM.view3d = (function () {
       if (!s.active) continue;
       seen.add(s);
       let g = figures.get(s);
+      if (g && g.userData.look !== figureLook(s).key) { scene3.remove(g); figures.delete(s); if (s === sceneP.player) rod = null; g = null; } // new clothes: a new figure
       if (!g) { g = makeFigure(s); figures.set(s, g); }
       follow(g, s, dt, true);
       const wt = sceneP.tileAt(Math.floor(s.x / VM.TILE), Math.floor((s.y - 3) / VM.TILE));
@@ -977,7 +960,7 @@ VM.view3d = (function () {
       g.userData.body.visible = true;
       // at night the 2D game shows other villagers as black shapes (tint fill): the 3D figure goes fully black too
       const black = !!(s.isTinted && s.tintFill);
-      g.userData.body.traverse((c) => { if (!c.material || !c.material.color || !c.material.userData.own) return; if (!c.userData.col) c.userData.col = c.material.color.getHex(); c.material.color.setHex(black ? 0x0c0c10 : c.userData.col); c.material.transparent = ghost; c.material.opacity = ghost ? 0.45 : 1; });
+      g.userData.body.traverse((c) => { if (!c.material || !c.material.color || !c.material.userData.own) return; const md = c.material.userData; if (md.col === undefined) md.col = c.material.color.getHex(); c.material.color.setHex(black ? 0x0c0c10 : md.col); c.material.transparent = ghost; c.material.opacity = ghost ? 0.45 : 1; });
       if (g.userData.ring) g.userData.ring.visible = !black && g.userData.ring.visible;
       const lb = s.label;
       if (lb) { g.userData.label.visible = lb.visible !== false; drawLabel(g.userData.label, lb.text, lb.style && lb.style.backgroundColor, lb.style && lb.style.color); }

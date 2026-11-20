@@ -1113,3 +1113,21 @@ html.force-landscape body { position: fixed; top: 0; left: 0; width: 100vh; heig
 /* the bus stand must disappear once the bus has left (the 3D design rule above must never keep it on screen) */
 #lobby[hidden], #lobby.lobby-3d[hidden] { display: none !important; }
 [hidden] { display: none !important; } /* anything the game hides stays hidden, whatever other styles say */
+
+
+/* customise your Damindu (menu) */
+.dam { display: grid; gap: 6px; }
+.dam-top { display: flex; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 16px; background: #eaf6fb; border: 2px solid #d4e6ee; }
+#dam-pic { width: 96px; height: 112px; flex: none; }
+.dam-side { flex: 1; display: grid; gap: 8px; }
+.dam-btn { padding: 9px 10px; border-radius: 12px; border: 2px solid #10170f; background: #ffd34d; font: 800 14px "Segoe UI", Arial, sans-serif; color: #1d1a12; cursor: pointer; box-shadow: 0 3px 0 #10170f; }
+.dam-btn.dam-alt { background: #fff; }
+.dam-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.dam-row { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: #fff; border: 1.5px solid #e6dcc6; }
+.dam-row b { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: #8a7f68; width: 100%; }
+.dam-row .dam-val { flex: 1; text-align: center; font: 700 12px "Segoe UI", Arial, sans-serif; color: #2b261d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.dam-row .dam-val i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,.3); }
+.dam-row button { width: 26px; height: 24px; border-radius: 8px; border: 1.5px solid #d9cfba; background: #fffaf0; font-size: 11px; cursor: pointer; color: #3a3428; flex: none; }
+.dam-cell { display: grid; gap: 2px; }
+body.is-touch #dam-pic { width: 76px; height: 90px; }
+body.is-touch .dam-rows { max-height: 34vh; }

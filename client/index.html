@@ -300,9 +300,20 @@
       <p class="menu-tag">A village with a secret</p>
       <div class="menu-card">
         <div id="join" hidden>
-          <label for="name" class="menu-label">Your name</label>
-          <input id="name" type="text" maxlength="14" autocomplete="nickname" placeholder="Type your name" aria-label="Your name in the village">
+          <label for="name" class="menu-label">Your Damindu's name</label>
+          <input id="name" type="text" maxlength="14" autocomplete="nickname" placeholder="Name your Damindu" aria-label="Your Damindu's name in the village">
           <p id="join-error" class="join-error" hidden></p>
+        </div>
+        <div class="dam" id="dam">
+          <span class="menu-label">Customise your Damindu</span>
+          <div class="dam-top">
+            <canvas id="dam-pic" width="240" height="280" aria-label="Your Damindu"></canvas>
+            <div class="dam-side">
+              <button type="button" id="dam-shuffle" class="dam-btn">🎲 Shuffle</button>
+              <button type="button" id="dam-edit" class="dam-btn dam-alt" aria-expanded="false">✏️ Customise</button>
+            </div>
+          </div>
+          <div class="dam-rows" id="dam-rows" hidden></div>
         </div>
         <button id="start" type="button" class="menu-play">PLAY</button>
         <p id="menu-hint" class="menu-hint">Hop on the bus with anyone online</p>
@@ -429,6 +440,8 @@
   <script src="src/input.js"></script>
   <script src="src/VillageScene.js"></script>
   <script src="src/roles.js"></script>
+  <script src="src/villager3d.js"></script>
+  <script src="src/damindu.js"></script>
   <script src="src/view3d.js"></script>
   <script src="src/journey.js"></script>
   <script src="src/journey3d.js"></script>

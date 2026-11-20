@@ -71,6 +71,10 @@ class VillageRoom extends Room {
       if (!p || !m) return;
       p.asleep = !!m.asleep && p.alive; p.inBoat = !!m.inBoat; p.inTractor = !!m.inTractor; p.inWater = !!m.inWater && p.alive; p.weak = !!m.weak && p.alive;
     });
+    this.onMessage('look', (client, code) => {
+      const p = this.state.players.get(client.sessionId);
+      if (p && /^[0-9]{1,2}(\.[0-9]{1,2}){8,9}$/.test(String(code || ''))) p.look = String(code);
+    });
     this.onMessage('outfit', (client, key) => {
       const p = this.state.players.get(client.sessionId);
       if (p && VM.OUTFITS.some((o) => o.key === key)) p.outfit = key;
@@ -210,6 +214,8 @@ class VillageRoom extends Room {
       if (bot) this.removeBot(bot);
     }
     const p = this.makePlayer(clean(options && options.name) || 'Villager', options && options.outfit);
+    const look = String((options && options.look) || '');
+    if (/^[0-9]{1,2}(\.[0-9]{1,2}){8,9}$/.test(look)) p.look = look;   // their own Damindu
     this.state.players.set(client.sessionId, p);
     this.meta.set(client.sessionId, { last: Date.now() });
     if (!this.state.host || !this.state.players.has(this.state.host)) this.state.host = client.sessionId;
@@ -231,7 +237,9 @@ class VillageRoom extends Room {
     let base = p.name, n = 2;
     while (players.some((o) => o.name === p.name)) p.name = (base.slice(0, 11) + ' ' + n++);
     const wanted = options && VM.OUTFITS.find((o) => o.key === options.outfit && !takenOutfits.has(o.key));
-    const free = VM.OUTFITS.filter((o) => !takenOutfits.has(o.key));
+    const asked = options && VM.OUTFITS.find((o) => o.key === options.outfit);
+    const free = VM.OUTFITS.filter((o) => !takenOutfits.has(o.key) && (!asked || o.kind === asked.kind));
+    if (!free.length) VM.OUTFITS.filter((o) => !takenOutfits.has(o.key)).forEach((o) => free.push(o));
     p.outfit = wanted ? wanted.key : (free.length ? free : VM.OUTFITS)[Math.floor(Math.random() * (free.length || VM.OUTFITS.length))].key;
     p.colour = (VM.PLAYER_COLORS.find((c) => !takenColours.has(c.key)) || VM.PLAYER_COLORS[0]).key;
     p.house = freeHouses[Math.floor(Math.random() * freeHouses.length)];
