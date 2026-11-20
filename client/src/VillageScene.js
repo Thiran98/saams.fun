@@ -651,11 +651,12 @@ class VillageScene extends Phaser.Scene {
       }
       // an elephant that sees someone outside at night charges at them
       const toPlayer = Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y);
-      const sees = toPlayer < VM.ELEPHANT_SEES || (e.charging && toPlayer < VM.ELEPHANT_SEES * 1.6 && time < e.chaseUntil);
+      const thief = this.isOriginalThief(), seeDist = VM.ELEPHANT_SEES * (thief ? 0.55 : 1);   // thieves must sneak out at night: elephants notice them later
+      const sees = toPlayer < seeDist || (e.charging && toPlayer < seeDist * 1.4 && time < e.chaseUntil);
       if (!e.leaving && !e.inGarden && this.isNight && this.playerOutside() && sees) {
         goal = { x: p.x, y: p.y };
-        speed = VM.ELEPHANT_CHARGE;
-        if (toPlayer < VM.ELEPHANT_SEES) e.chaseUntil = time + VM.ELEPHANT_MEMORY;   // it keeps chasing a little after losing sight of you
+        speed = thief ? VM.ELEPHANT_CHARGE * 0.72 : VM.ELEPHANT_CHARGE;   // and charge them slower (a hungry thief can still get away)
+        if (toPlayer < seeDist) e.chaseUntil = time + (thief ? VM.ELEPHANT_MEMORY / 2 : VM.ELEPHANT_MEMORY);   // it keeps chasing a little after losing sight of you
         if (!e.charging) { e.charging = true; VM.sound.play('trumpet'); this.cameras.main.shake(250, 0.004); VM.ui.toast('🐘 An elephant has seen you! Run home or scare it away (E)!'); }
         if (toPlayer < VM.ELEPHANT_KILLS) this.killPlayer('An elephant trampled you!');
       } else e.charging = false;
@@ -1471,10 +1472,10 @@ class VillageScene extends Phaser.Scene {
 Object.assign(VillageScene.prototype, {
   startBees() {
     const p = this.player, now = this.time.now;
-    this.bees = { x: p.x + 50, y: p.y - 40, until: now + VM.BEE_SECONDS * 1000, nextSting: now + 1500, nextBuzz: 0 };
+    this.bees = { x: p.x + 50, y: p.y - 40, until: VM.BEE_SECONDS ? now + VM.BEE_SECONDS * 1000 : Infinity, nextSting: now + 1500, nextBuzz: 0 };
     if (!this.beeG) this.beeG = this.add.graphics().setDepth(100002);
     VM.sound.play('buzz');
-    VM.ui.banner('Bees!', 'You disturbed a bees\' nest!', 'Run to the village and hide in anyone\'s house: just reach a house door. Every sting costs food.', true);
+    VM.ui.banner('Bees!', 'You disturbed a bees\' nest!', 'They follow you until you hide: reach any house door (your own house keeps them as a hive). Every sting costs food.', true);
   },
   // you reached your own house: the bees settle in a hive there and guard it for 2 nights
   keepBees() {

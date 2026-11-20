@@ -662,10 +662,13 @@ VM.view3d = (function () {
   }
   function makeAnimal(key) {
     const g = new THREE.Group();
-    const legs = (c, h, w, d, r) => [[-w, d], [w, d], [-w, -d], [w, -d]].forEach(([a, b]) => g.add(mesh(new THREE.CylinderGeometry(r, r * 0.9, h, 8), c, a, h / 2, b)));
+    const legs = (c, h, w, d, r) => {
+      g.userData.legs = [[-w, d], [w, d], [-w, -d], [w, -d]].map(([a, b]) => { const p = new THREE.Group(); p.position.set(a, h, b); p.add(mesh(new THREE.CylinderGeometry(r, r * 0.9, h, 8), c, 0, -h / 2, 0)); g.add(p); return p; });
+      g.userData.legs.speed = h > 0.5 ? 6 : 11;   // big elephants take slower steps
+    };
     if (key === 'cow') {
       legs('#f1ece2', 0.28, 0.24, 0.12, 0.055);
-      [[-0.24, 0.12], [0.24, 0.12], [-0.24, -0.12], [0.24, -0.12]].forEach(([a, b]) => g.add(mesh(new THREE.CylinderGeometry(0.058, 0.058, 0.05, 8), '#4a3a30', a, 0.025, b))); // hooves
+      g.userData.legs.forEach((l) => l.add(mesh(new THREE.CylinderGeometry(0.058, 0.058, 0.05, 8), '#4a3a30', 0, -0.255, 0))); // hooves (they move with the legs)
       g.add(sph(0.26, '#f6f2ea', 0, 0.48, 0, 1.55, 1, 1));                         // round body
       g.add(sph(0.1, '#4a3a32', -0.12, 0.6, 0.18, 1.3, 1, 0.5)); g.add(sph(0.08, '#4a3a32', 0.15, 0.5, -0.2, 1.2, 1, 0.5)); g.add(sph(0.07, '#4a3a32', -0.2, 0.62, -0.15, 1, 1, 0.6)); // spots
       g.add(sph(0.17, '#f6f2ea', 0.46, 0.62, 0));                                   // head
@@ -694,7 +697,8 @@ VM.view3d = (function () {
       const tail = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4, 5), '#8f8aa6', -0.85, 0.9, 0); tail.rotation.z = -0.3; g.add(tail);
     } else {
       // a fluffy round chicken
-      [-0.04, 0.04].forEach((z) => g.add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.1, 4), '#f0a030', 0, 0.05, z)));
+      g.userData.legs = [-0.04, 0.04].map((z) => { const p = new THREE.Group(); p.position.set(0, 0.1, z); p.add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.1, 4), '#f0a030', 0, -0.05, 0)); g.add(p); return p; });
+      g.userData.legs.push(g.userData.legs[1], g.userData.legs[0]); g.userData.legs.speed = 16;   // two quick little legs
       g.add(sph(0.13, '#fbf7ee', 0, 0.18, 0, 1.2, 1, 1));
       g.add(sph(0.08, '#fbf7ee', 0.1, 0.3, 0));
       g.add(mesh(new THREE.ConeGeometry(0.025, 0.06, 5), '#f0a030', 0.18, 0.3, 0)).children.slice(-1)[0].rotation.z = -Math.PI / 2;
@@ -713,18 +717,29 @@ VM.view3d = (function () {
     const dx = x - (d.px === undefined ? x : d.px), dz = z - (d.pz === undefined ? z : d.pz);
     d.px = x; d.pz = z;
     g.position.set(x, 0, z);
-    const moving = Math.hypot(dx, dz) > 0.002;
-    if (moving) d.face = Math.atan2(dx, dz);
+    // speed, smoothed: tiny wobbles in position (phones, the network) no longer make a figure twitch between
+    // walking and standing, or flip the way it faces
+    const step = Math.hypot(dx, dz);
+    d.spd = (d.spd || 0) + (Math.min(step / Math.max(dt, 0.001), 12) - (d.spd || 0)) * Math.min(1, dt * 8);
+    const moving = d.spd > (isPerson ? 0.7 : 0.3);   // animals amble slowly
+    if (step > 0.012 && moving) d.face = Math.atan2(dx, dz);
     const target = isPerson ? d.face : d.face - Math.PI / 2;
     const part = isPerson ? d.body : g;
     if (part) {
       let diff = target - part.rotation.y; while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2;
       part.rotation.y += diff * Math.min(1, dt * 10);
+      // animals and elephants: legs swing in diagonal pairs while they walk
+      if (!isPerson && d.legs) {
+        d.stride = (d.stride || 0) + ((moving ? 1 : 0) - (d.stride || 0)) * Math.min(1, dt * 6);
+        d.gait = (d.gait || 0) + dt * (d.legs.speed || 10) * d.stride;
+        const sw = Math.sin(d.gait) * 0.45 * d.stride;
+        d.legs.forEach((l, i) => { l.rotation.z = (i === 0 || i === 3 ? sw : -sw); });
+      }
       if (isPerson) {
-        d.bob = (d.bob || 0) + (moving ? dt * 14 : 0); part.position.y = moving ? Math.abs(Math.sin(d.bob)) * 0.06 : 0; part.rotation.z = Math.PI / 2 * ((s.angle || 0) / 90);
+        d.stride = (d.stride || 0) + ((moving ? 1 : 0) - (d.stride || 0)) * Math.min(1, dt * 8);   // eases in and out
+        d.bob = (d.bob || 0) + dt * 14 * d.stride; part.position.y = Math.abs(Math.sin(d.bob)) * 0.06 * d.stride; part.rotation.z = Math.PI / 2 * ((s.angle || 0) / 90);
         const p = part.userData.parts;
         if (p) {
-          d.stride = (d.stride || 0) + ((moving ? 1 : 0) - (d.stride || 0)) * Math.min(1, dt * 8);   // eases in and out
           const sw = Math.sin(d.bob) * 0.55 * d.stride;
           if (p.legs) { p.legs[0].rotation.x = sw; p.legs[1].rotation.x = -sw; }
           if (p.arms) { p.arms[0].rotation.x = -sw * 0.8; p.arms[1].rotation.x = sw * 0.8; }
@@ -963,7 +978,14 @@ VM.view3d = (function () {
       const wt = sceneP.tileAt(Math.floor(s.x / VM.TILE), Math.floor((s.y - 3) / VM.TILE));
       const inBoat = s === sceneP.player ? !!sceneP.inBoat : false;
       g.position.y = wt === T().WATER ? (inBoat ? 0.12 : -0.45) : 0;
-      if (s === sceneP.player && sceneP.inTractor && tractor3) { g.position.set(tractor3.position.x - 0.2, 0.5, tractor3.position.z); g.userData.ring.visible = false; }
+      if (s === sceneP.player && sceneP.inTractor && tractor3) {
+        // on the seat over the back wheels, facing the bonnet, legs bent forward, hands on the steering wheel
+        const fwd = tractor3.rotation.y ? -1 : 1, b = g.userData.body, p = b.userData.parts;
+        g.position.set(tractor3.position.x - 0.24 * fwd, 0.5, tractor3.position.z);
+        b.rotation.y = fwd > 0 ? Math.PI / 2 : -Math.PI / 2; b.position.y = 0;
+        if (p) { p.legs.forEach((l) => { l.rotation.x = -1.45; }); p.arms.forEach((a) => { a.rotation.x = -0.9; }); }
+        g.userData.ring.visible = false;
+      }
       const ghost = s.alpha < 0.9;
       g.visible = s.visible !== false && (s.alpha > 0.05);
       g.userData.body.visible = true;
