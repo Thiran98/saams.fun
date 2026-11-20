@@ -3,7 +3,7 @@
 // this file draws the same village in soft low-poly 3D (Three.js) on a canvas behind it, every frame.
 // Coordinates: 1 tile (32 px) = 1 unit. Phaser x -> 3D x, Phaser y -> 3D z, 3D y is up.
 
-VM.USE3D = !/[?&]2d\b/.test(location.search) && (/[?&]3d\b/.test(location.search) || /\/(play|game)(\/|$)/.test(location.pathname) || (() => { try { return localStorage.getItem('sams-gama-3d') === '1'; } catch (e) { return false; } })()); // 3D on saams.fun's game pages; ?2d = flat
+VM.USE3D = !/[?&]2d/.test(location.search); // 3D is the game everywhere (saams.fun, the Render server, practice); ?2d = the old flat look
 
 VM.view3d = (function () {
   const T = () => VM.T;
