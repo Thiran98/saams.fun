@@ -1,0 +1,9 @@
+{
+  "name": "sri-lankan-village-mafia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser-based social deduction game set in a Sri Lankan village (Phase 1 prototype).",
+  "scripts": {
+    "start": "node serve.js"
+  }
+}

@@ -1,0 +1,20 @@
+# Render (render.com) blueprint for the Sams Gama game server: a free web service.
+# The server lives in server/ and reads the shared game rules from client/, so the whole repository is used.
+# The OpenAI key (narrator voice) is NOT in this file: Render asks for it when the service is created.
+services:
+  - type: web
+    name: sams-gama
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: cd server && npm ci
+    startCommand: node server/index.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: OPENAI_API_KEY
+        sync: false

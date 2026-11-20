@@ -1,0 +1,7 @@
+# Sams Gama game files: browsers must check for a newer version every time (no week-long caching)
+<IfModule mod_headers.c>
+  Header set Cache-Control "no-cache, must-revalidate"
+</IfModule>
+<IfModule mod_expires.c>
+  ExpiresActive Off
+</IfModule>

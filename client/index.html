@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Sams Gama</title>
+  <meta name="description" content="Someone on this bus is a thief. Work the village by day, lock your door by night, and vote them out. 3 to 12 friends, free, no download.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Sams Gama: someone on this bus is a THIEF">
+  <meta property="og:description" content="A Sri Lankan village with a secret. Get on the bus with 3 to 12 friends, find the thief before night falls. Free, no download.">
+  <meta property="og:url" content="https://saams.fun/game/">
+  <meta property="og:image" content="https://saams.fun/game/assets/share.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://saams.fun/game/assets/share.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Phaser draws the village inside this box -->
+  <div id="game"></div>
+
+  <!-- On-screen information (HUD) drawn with plain HTML on top of the game -->
+  <div id="hud">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="panel clock" id="clock">
+          <div class="badge">
+            <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><g stroke-width="2" stroke-linecap="round"><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></g></svg>
+            <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+            <span id="phase">Day 1</span>
+          </div>
+          <div id="timer">3:00</div>
+          <div id="tagline" class="note">Work, farm, trade, complete tasks</div>
+        </div>
+        <div id="net" class="net" hidden></div>
+        <canvas id="minimap" title="Village map (M)"></canvas>
+        <ul id="jobs" class="panel"></ul>
+      </div>
+      <div class="panel basket">
+        <div id="me"><i></i><span></span></div>
+        <button id="myrole" type="button" hidden title="Your secret role (only you can see this)">Secret role: <b></b></button>
+        <div id="purse" hidden title="The thieves' secret loot. Only thieves see this."><span>Thieves' loot</span><b></b><div class="purse-bar"><i></i></div></div>
+        <div class="food-row">
+          <span id="food-text">Food</span>
+          <div id="food"><i></i></div>
+          <button id="eat" type="button">Eat <kbd>F</kbd></button>
+        </div>
+        <div id="inventory"></div>
+        <div id="store" class="store"></div>
+        <ul id="richest"></ul>
+      </div>
+    </div>
+    <div id="banner" hidden><small>Your task</small><b></b><span>Follow the yellow arrow</span></div>
+    <div id="toasts" role="status" aria-live="polite"></div>
+    <div id="sleep" hidden>
+      <b>Sleeping safely in your house… z z z</b>
+      <span>You wake up when the morning comes.</span>
+      <button id="wake" type="button">Go outside (elephants!)</button>
+    </div>
+    <div class="hud-bottom">
+      <div id="progress" hidden><div class="bar"><i></i></div><span></span></div>
+      <div id="roleprompt" hidden><kbd>R</kbd><span></span></div>
+      <div id="trickprompt" hidden><kbd>T</kbd><span></span></div>
+      <div id="prompt" hidden><kbd>E</kbd><span></span></div>
+    </div>
+  </div>
+
+
+  <!-- Touch controls (shown on phones and tablets) -->
+  <div id="touch">
+    <div id="stick"><div id="knob"></div></div>
+    <button id="rolebtn" type="button">Role</button>
+    <button id="trickbtn" type="button">Trick</button>
+    <button id="action" type="button">Use</button>
+  </div>
+
+  <!-- Before a match: everyone waits at the bus stand and takes a seat in the bus to Sams Gama -->
+  <div id="lobby" hidden>
+    <div class="stand-sky"><i class="sun-disc"></i><i class="cloud c1"></i><i class="cloud c2"></i></div>
+    <div class="stand-wrap">
+      <div class="stand-head">
+        <div class="stand-sign"><small>Bus stand</small><b>Bus to Sams Gama</b><span>Pettah · Kegalle · Kandy · Deniyaya</span></div>
+        <div id="bus-code" class="bus-code" hidden><small>Private bus · code</small><b></b><span>Friends type this code to join</span></div>
+        <div class="stand-count"><b id="lobby-count">0 / 12</b><span>seats taken</span><em id="lobby-timer"></em></div>
+      </div>
+      <!-- a red Langama-style bus parked at the stand, seen from the side; players sit in its windows -->
+      <div class="lg-scene">
+        <div class="lg-bus" id="bus-plan" aria-label="Seats in the bus">
+          <div class="lg-roof"><i></i><i></i></div>
+          <div class="lg-board"><span>99</span>SAMS GAMA</div>
+          <ol id="lobby-list"></ol>
+          <div class="lg-door"><i></i><i></i></div>
+          <div class="lg-screen"><span class="lg-driver"></span></div>
+          <div class="lg-stripe"><span class="lg-sltb">SLTB</span></div>
+          <div class="lg-skirt"></div>
+          <i class="lg-light"></i>
+          <i class="lg-wheel w1"></i><i class="lg-wheel w2"></i>
+        </div>
+        <div class="lg-road"></div>
+      </div>
+      <ul id="lobby-names" class="lg-names"></ul>
+      <p class="stand-clock">The bus leaves by itself in <b id="lobby-clock">5:00</b></p>
+      <div id="mode-pick" class="mode-pick" role="radiogroup" aria-label="How to play this match">
+        <button type="button" class="mode-card" data-mode="walk"><b>Village life</b><span>Walk around, work and trade. Everything happens in real time: thieves sneak out at night and attack with R.</span></button>
+        <button type="button" class="mode-card" data-mode="mafia"><b>Classic Mafia</b><span>Turns with a narrator: at night the thieves, doctor and police choose from a list; morning news; discussion; vote.</span></button>
+      </div>
+      <p id="mode-note" class="stand-note"></p>
+      <p id="lobby-need" class="stand-note"></p>
+      <p id="lobby-msg" class="stand-msg" hidden></p>
+      <div class="lobby-buttons">
+        <button id="lobby-start" type="button" hidden>Let's go to Sams Gama!</button>
+        <div id="lobby-bots" class="bot-buttons" hidden>
+          <button id="lobby-addbot" type="button">+ Add a computer player</button>
+          <button id="lobby-fillbots" type="button">Fill the bus</button>
+          <button id="lobby-clearbots" type="button" class="link">Remove computer players</button>
+        </div>
+        <p id="lobby-wait" class="stand-wait" hidden></p>
+        <button id="lobby-copy" type="button" class="link">Copy invite link for friends</button>
+        <a class="paper-link" href="#paper">Read today's paper while you wait ↓</a>
+      </div>
+
+      <!-- the rules, as a village newspaper (a paththare) to read while the bus fills up -->
+      <article id="paper" class="paper">
+        <header class="paper-head">
+          <small>Price Rs 20 · Morning edition · Berala Panathara</small>
+          <h2>The Sams Gama Times</h2>
+          <p>Village news · How to play · Who to trust</p>
+        </header>
+        <h3 class="paper-headline">THIEVES HIDING AMONG US!</h3>
+        <p class="paper-lead">Police warn that one or more thieves will travel on today's bus to Berala Panathara, disguised as honest villagers. Nobody knows who they are.</p>
+        <div class="paper-cols">
+          <section>
+            <h4>How to play</h4>
+            <ul>
+              <li><kbd>W A S D</kbd> or arrow keys: walk. On a phone, drag the circle.</li>
+              <li><kbd>E</kbd>: use the place you stand at (the yellow pointer).</li>
+              <li><kbd>R</kbd>: your secret role's action. <kbd>T</kbd>: thieves' tricks.</li>
+              <li><kbd>F</kbd>: eat. <kbd>M</kbd>: map (your house, land and paddy have icons).</li>
+            </ul>
+          </section>
+          <section>
+            <h4>Land for sale!</h4>
+            <p>Everyone arrives with Rs 50. Buy the vegetable land next to your house (Rs 50) and one paddy plot (Rs 40) before you can grow anything. The owner's name goes on the sign. Harvested paddy grows back in 6 minutes.</p>
+          </section>
+          <section>
+            <h4>Aswasuma every morning</h4>
+            <p>When you wake up, every villager gets Aswasuma: Rs 5 to 20. Save it for land, or an electric fence (Rs 50) at your house to keep elephants off your paddy or vegetables.</p>
+          </section>
+          <section>
+            <h4>Eat or you will die</h4>
+            <p>Plain rice fills you only a little. Rice and curry, fish, meat (hunt in the jungle), eggs and coconuts are better. With an empty food bar you grow weak: eat within 60 seconds or die of hunger. Starving? Raw paddy or water fills 10%.</p>
+          </section>
+          <section>
+            <h4>Your secret role</h4>
+            <ul>
+              <li><b class="r-thief">Thief</b>: starts with nothing; honest work gives nothing. One attack a night for all thieves together; robs houses and animals; plays tricks.</li>
+              <li><b class="r-police">Police</b>: questions one person a day, and has 3 bullets for elephants.</li>
+              <li><b class="r-doctor">Doctor</b>: guards one person a night, and heals the injured.</li>
+              <li><b class="r-villager">Villager</b>: works, swaps goods, watches and votes. One villager can swim.</li>
+            </ul>
+          </section>
+          <section>
+            <h4>Attacked? 20 seconds!</h4>
+            <p>A thief's attack leaves you injured on the ground. If the doctor reaches you within 20 seconds you are back in the game; if not, you die. The dead get white flags at their house, and birds eat their harvest.</p>
+          </section>
+          <section>
+            <h4>Night and elephants</h4>
+            <p>Go home and sleep before dark (E at your house). Elephants trample anyone outside at night, and everything you carry falls on the ground. The one tractor (15 seconds a ride) chases elephants back to the jungle.</p>
+          </section>
+          <section>
+            <h4>Watch out</h4>
+            <p>A villager who steals gets a STOLE badge. Thieves hide stolen goods at innocent houses, throw mud in the well or put out the cooking fire. Lines at the well and cooking hut: anyone can jump the queue.</p>
+          </section>
+          <section>
+            <h4>The village bell</h4>
+            <p>By day, ring the bell under the big tree (E) to call a meeting, once per match. Everyone votes, and the one with the most votes leaves. After the final day there is always a last vote.</p>
+          </section>
+          <section class="paper-box">
+            <h4>How to win</h4>
+            <p><b>Villagers</b>: vote out every thief.</p>
+            <p><b>Thieves</b>: fill the loot bag, or outnumber the villagers, or survive the final vote.</p>
+          </section>
+        </div>
+        <p class="paper-foot">Out of the match? You become a ghost: fly around, do ghost jobs and paint the person you think is a thief. Ghosts cannot eat or vote.</p>
+      </article>
+    </div>
+  </div>
+
+  <!-- The bus journey to the village (drawn on this canvas), then the black screen with your secret role -->
+  <div id="journey" hidden>
+    <canvas id="journey-canvas"></canvas>
+    <div id="journey-place" class="journey-place"><small></small><b></b></div>
+    <button id="journey-skip" type="button" class="link">Skip the ride</button>
+  </div>
+  <div id="reveal" hidden>
+    <p class="reveal-where">Welcome to Berala Panathara</p>
+    <p class="reveal-info"></p>
+    <p class="reveal-tag">Your secret role</p>
+    <h1 class="reveal-role"></h1>
+    <p class="reveal-text"></p>
+    <p class="reveal-partners" hidden></p>
+    <p class="reveal-key"></p>
+    <p class="reveal-secret">Only you can see this. Keep it secret!</p>
+    <button id="reveal-go" type="button">Enter the village</button>
+  </div>
+
+  <!-- Phase 3: your secret role (only you see it) -->
+  <div id="rolecard" class="overlay" hidden>
+    <div class="card role-card">
+      <p class="tag">Your secret role</p>
+      <h1 class="role-name"></h1>
+      <p class="role-text"></p>
+      <p class="role-partners" hidden></p>
+      <p class="role-key small"></p>
+      <p class="small">Keep it secret. Tap "Secret role" (top right) to see it again.</p>
+      <button id="role-ok" type="button">Got it</button>
+    </div>
+  </div>
+
+  <!-- Phase 3: village meeting and vote -->
+  <div id="meeting" class="overlay" hidden>
+    <div class="card meeting-card">
+      <div class="meeting-head"><b id="meeting-title"></b><span id="meeting-time"></span></div>
+      <p id="meeting-note" class="small"></p>
+      <ul id="meeting-list"></ul>
+      <button id="vote-skip" type="button" class="link">Skip vote (nobody leaves)</button>
+    </div>
+  </div>
+
+  <!-- Phase 3: end of the match -->
+  <div id="endscreen" class="overlay" hidden>
+    <div class="card end-card">
+      <p class="tag">Match over</p>
+      <h1 class="end-title"></h1>
+      <p class="end-sub"></p>
+      <table><thead><tr><th>Player</th><th>Secret role</th><th></th></tr></thead><tbody></tbody></table>
+      <button id="end-again" type="button" hidden>New match</button>
+      <p id="end-wait" class="small" hidden>Waiting for the host to start a new match.</p>
+      <p id="end-timer" class="small"></p>
+    </div>
+  </div>
+
+  <!-- Classic Mafia mode: the night screen (choices from a list) and the morning news -->
+  <div id="mafia" hidden>
+    <div class="mafia-card">
+      <p class="mafia-step"></p>
+      <h2 class="mafia-title"></h2>
+      <p class="mafia-text"></p>
+      <div class="mafia-tabs" hidden>
+        <button type="button" data-kind="main" class="on">Choose the victim</button>
+        <button type="button" data-kind="frame">Hide stolen goods at a house</button>
+      </div>
+      <ul class="mafia-list"></ul>
+      <p class="mafia-foot"></p>
+    </div>
+  </div>
+  <!-- Classic Mafia mode: the discussion bar -->
+  <div id="mafia-bar" hidden><b></b><span></span><button id="mafia-votenow" type="button" hidden>Start the vote now</button></div>
+
+  <!-- swapping goods with another player (online: no money) -->
+  <div id="swap" class="overlay" hidden>
+    <div class="card swap-card">
+      <div class="howto-head"><b class="swap-who">Swap</b><button id="swap-close" type="button" aria-label="Close">✕</button></div>
+      <label class="gm-row"><span>You give</span><select id="swap-give"></select></label>
+      <label class="gm-row"><span>You want</span><select id="swap-want"></select></label>
+      <button id="swap-send" type="button" class="howto-go">Offer the swap</button>
+      <p class="gm-note">They have to say yes. Then the goods change hands.</p>
+    </div>
+  </div>
+  <div id="swapin" hidden><b class="swapin-text"></b><span><button id="swapin-yes" type="button">Yes, swap</button><button id="swapin-no" type="button">No</button></span></div>
+  <div id="injuredbar" hidden>🩸 You are injured! Only the doctor can save you: <b></b></div>
+
+  <!-- Trading with another villager -->
+  <div id="trade" hidden>
+    <div class="trade-head"><b class="trade-who"></b><button id="trade-close" type="button" aria-label="Close trade">×</button></div>
+    <div class="trade-money"></div>
+    <div class="trade-cols">
+      <div><h3>Buy from them</h3><ul class="trade-buy"></ul></div>
+      <div><h3>Sell to them</h3><ul class="trade-sell"></ul></div>
+    </div>
+    <p class="trade-tip">They pay more for goods they do not have. Buy cheap, sell where it is needed, and get rich.</p>
+  </div>
+
+  <!-- Big village map (M or tap the small map) -->
+  <div id="mapview" class="overlay" hidden>
+    <div class="map-card">
+      <div class="map-head"><b>Village map</b><span>Houses show their owner's colour. The white dot is you.</span><button id="mapclose" type="button" aria-label="Close map">×</button></div>
+      <canvas id="bigmap"></canvas>
+    </div>
+  </div>
+
+  <!-- Welcome / how to play -->
+  <div id="help" class="overlay">
+    <!-- the start menu -->
+    <!-- a sunny village behind the menu -->
+    <div class="menu-scene" aria-hidden="true"><i class="ms-sun"></i><i class="ms-cloud c1"></i><i class="ms-cloud c2"></i><i class="ms-hill h1"></i><i class="ms-hill h2"></i><i class="ms-hill h3"></i><i class="ms-palm p1"></i><i class="ms-palm p2"></i><i class="ms-palm p3"></i></div>
+    <div class="menu" id="menu">
+      <h1 class="menu-logo">SAMS <span>GAMA</span></h1>
+      <p class="menu-tag">A village with a secret</p>
+      <div class="menu-card">
+        <div id="join" hidden>
+          <label for="name" class="menu-label">Your name</label>
+          <input id="name" type="text" maxlength="14" autocomplete="nickname" placeholder="Type your name" aria-label="Your name in the village">
+          <p id="join-error" class="join-error" hidden></p>
+        </div>
+        <button id="start" type="button" class="menu-play">PLAY</button>
+        <p id="menu-hint" class="menu-hint">Hop on the bus with anyone online</p>
+        <div class="menu-or" id="menu-or"><span>or</span></div>
+        <button id="menu-private" type="button" class="menu-btn menu-friends" hidden><span aria-hidden="true">👥</span> Play with friends</button>
+        <div id="codes" class="code-box" hidden>
+          <p class="code-help">Got a code from a friend? Type it in.</p>
+          <div class="code-row">
+            <input id="code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Bus code">
+            <button id="code-join" type="button">Join</button>
+          </div>
+          <button id="code-new" type="button"><span aria-hidden="true">🚌</span> Create a private bus</button>
+        </div>
+        <div class="menu-row">
+          <button id="menu-howto" type="button" class="menu-icon"><span aria-hidden="true">❔</span>How to play</button>
+          <button id="menu-settings" type="button" class="menu-icon"><span aria-hidden="true">⚙️</span>Settings</button>
+        </div>
+        <button id="offline" type="button" class="link" hidden>Play offline instead</button>
+      </div>
+    </div>
+
+    <!-- how to play -->
+    <div class="card howto" id="howto" hidden>
+      <div class="howto-head"><b>How to play</b><button id="howto-close" type="button" aria-label="Close">✕</button></div>
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="how">How to play</button>
+        <button type="button" class="tab" data-tab="controls">Controls</button>
+      </div>
+
+      <div class="tab-page" data-page="how">
+        <p><b>A village with a secret.</b> Up to 12 players ride the bus to Sams Gama. Most are honest villagers, but a few are secretly thieves. Nobody knows who.</p>
+        <h2>Your village life</h2>
+        <ul class="rules">
+          <li><b>Your house and colour.</b> Your house, name tag and the ring under your feet are in your colour. On the map, your house 🏠, land 🥬 and paddy 🌾 have small icons.</li>
+          <li><b>Buy first, then grow.</b> You arrive with Rs 50 (thieves with nothing). Buy the vegetable land next to your house (Rs 50) and one paddy plot (Rs 40) of the six in the fields. Only then can you pick or harvest there. The sign shows the owner's name. Harvested paddy grows back in 6 minutes.</li>
+          <li><b>Aswasuma.</b> Every morning when you wake up, you get Aswasuma: Rs 5 to 20.</li>
+          <li><b>Electric fence.</b> At your house, upgrade with an electric fence (Rs 50) round your paddy plot or your vegetable land. Elephants get zapped and cannot eat it. Paddy an elephant eats takes 6 minutes to grow back.</li>
+          <li><b>Eat every day.</b> Plain rice (paddy, firewood, water at the cooking hut) fills you only a little; add vegetables for rice and curry. Fish, meat (hunt in the jungle), eggs and coconuts are good food. With an empty food bar you get weak (everyone can see it): eat within 60 seconds or you die of hunger. Starving with no food? You can chew raw paddy or drink water: it fills only 10%.</li>
+          <li><b>Swap goods.</b> Walk up to another player and offer a swap (milk for paddy, fish for vegetables…). They accept or say no.</li>
+          <li><b>Lines.</b> At the well and the cooking hut people wait in line, and anyone can jump the queue.</li>
+          <li><b>Water.</b> Fall in and you have 30 seconds to get out, or someone must pull you out. One villager can swim. Take a boat from the jetty to fish; press E next to land to get out.</li>
+        </ul>
+        <h2>Day and night</h2>
+        <ul class="rules">
+          <li><b>Day (2 minutes):</b> work, swap and watch what others do.</li>
+          <li><b>Dusk:</b> the arrow points home. Press E at your house to sleep before dark.</li>
+          <li><b>Night:</b> elephants roam and trample anyone outside; everything they carried falls on the ground for others to pick up. Everyone outside is a black shape with no name. Fireflies come out.</li>
+          <li><b>The tractor:</b> one for the whole village, 15 seconds a ride. Drive it into an elephant to chase it back to the jungle.</li>
+          <li><b>Stealing:</b> a villager who steals at night gets a STOLE badge everyone can see. Only the original thieves can steal without it.</li>
+          <li><b>Death:</b> a black screen and a sad violin. White flags go up at the dead person's house, and birds eat their harvest.</li>
+        </ul>
+        <h2>Secret roles <span class="soon">online matches</span></h2>
+        <ul class="rules">
+          <li><b>Villager:</b> works, swaps and votes. Never kills.</li>
+          <li><b>Thief:</b> starts with nothing and gets nothing from honest work (it can only pretend). One attack a night for all the thieves together: the person is injured, not dead at once. Robs sleeping players' houses and takes animals for the secret loot. Tricks (T): hide stolen goods at someone's house, throw mud in the well, put out the cooking fire.</li>
+          <li><b>Doctor:</b> guards one player a night, and heals an injured player. Reach them within 20 seconds and they come back into the game; too late and they die.</li>
+          <li><b>Police:</b> questions one person a day (thief or not?) and has 3 bullets to shoot at elephants.</li>
+          <li><b>Village meeting:</b> by day, ring the bell under the big tree (E), once per match. Everyone votes; the one with the most votes leaves. After the final day there is always a final vote.</li>
+          <li><b>Ghosts:</b> killed, trampled, starved or voted out players become ghosts. They fly, do their own ghost jobs and paint the person they think is a thief. They cannot eat or vote.</li>
+        </ul>
+        <p class="goal"><b>Win:</b> villagers win by voting out every original thief. Thieves win when they are as many as the villagers left, when their loot reaches the goal, or when they survive the final vote.</p>
+        <p class="small">The host (who starts the bus) is the bus driver. Offline you practise alone with computer villagers. Follow the yellow arrow to do your first jobs.</p>
+      </div>
+
+      <div class="tab-page" data-page="controls" hidden>
+        <ul class="keys">
+          <li><kbd>W A S D</kbd> or <kbd>Arrow keys</kbd> walk (row when in a boat)</li>
+          <li><kbd>E</kbd> or <kbd>Space</kbd> use the place you stand at (buy land, harvest, swap, drive the tractor, get out of a boat…)</li>
+          <li><kbd>R</kbd> your secret role's action (attack, heal, guard, question, shoot, or paint as a ghost)</li>
+          <li><kbd>T</kbd> thieves only, at night: a trick (hide stolen goods at a sleeping player's house, throw mud in the well, put out the cooking fire)</li>
+          <li><kbd>F</kbd> eat food from your basket</li>
+          <li><kbd>M</kbd> open the village map</li>
+          <li><kbd>C</kbd> change your clothes</li>
+          <li><kbd>N</kbd> skip to the next part of the day (testing)</li>
+          <li><kbd>H</kbd> show this help again</li>
+          <li class="touch-only">Phone: drag the circle to walk, tap <b>Use</b>, tap <b>Role</b> for your role's action, tap <b>Eat</b>, tap the small map</li>
+        </ul>
+      </div>
+      <button id="howto-go" type="button" class="howto-go">Got it!</button>
+    </div>
+  </div>
+
+  <!-- the in-game menu (☰) and settings -->
+  <button id="menubtn" type="button" aria-label="Menu" title="Menu">☰</button>
+  <button id="mapbtn" type="button" aria-label="Village map" title="Village map">🗺️</button>
+  <div id="rotate"><div class="rot-phone"></div><b>Turn your phone sideways</b><span>Sams Gama plays best in landscape.</span></div>
+  <div id="gamemenu" class="overlay" hidden>
+    <div class="card gm-card">
+      <div class="howto-head"><b>Menu</b><button id="gm-close" type="button" aria-label="Close">✕</button></div>
+      <label class="gm-row"><span>Sound effects</span><input id="gm-sound" type="checkbox"></label>
+      <label class="gm-row"><span>Bus music</span><input id="gm-music" type="checkbox"></label>
+      <div class="gm-row gm-song">
+        <span>Bus song<small id="gm-song-name">The game's own tune</small></span>
+        <span class="gm-song-btns">
+          <button id="gm-song-pick" type="button">Choose my song</button>
+          <button id="gm-song-clear" type="button" hidden>Use the game's tune</button>
+        </span>
+        <input id="gm-song-file" type="file" accept="audio/*" hidden>
+      </div>
+      <p class="gm-note">Your own song plays only on this device, during the bus ride, for 24 hours; then the game's tune comes back. It is not uploaded anywhere.</p>
+      <label class="gm-row gm-voice"><span>Narrator voice</span><select id="voicepick" aria-label="Narrator voice"></select></label>
+      <button id="gm-howto" type="button" class="menu-btn">How to play</button>
+      <button id="gm-leave" type="button" class="menu-btn gm-leave" hidden>Leave the game</button>
+    </div>
+  </div>
+  <button id="tapmusic" type="button" hidden>🔊 Tap for bus music</button>
+
+  <div id="error" class="overlay" hidden>
+    <div class="card"><h1>The game could not start</h1><p id="error-text"></p></div>
+  </div>
+
+  <!-- Phaser 3 game framework (free, open source) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+
+  <!-- Our game files. The order matters: settings first, the game start last. -->
+  <script src="src/config.js"></script>
+  <script src="src/landscape.js"></script>
+  <script src="src/sound.js"></script>
+  <script src="src/net.js"></script>
+  <script src="src/textures.js"></script>
+  <script src="src/map.js"></script>
+  <script src="src/tasks.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/input.js"></script>
+  <script src="src/VillageScene.js"></script>
+  <script src="src/roles.js"></script>
+  <script src="src/view3d.js"></script>
+  <script src="src/journey.js"></script>
+  <script src="src/journey3d.js"></script>
+  <script src="src/mafia.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>

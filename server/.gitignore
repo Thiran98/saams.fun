@@ -1,0 +1,6 @@
+node_modules/
+# the OpenAI key (never share or upload this file)
+.env
+# saved narrator voice lines
+tts-cache/
+private-music/

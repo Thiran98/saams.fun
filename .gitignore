@@ -1,0 +1,15 @@
+# Never uploaded to GitHub
+# secrets: the OpenAI key lives only in server/.env (on Render it is set in the dashboard)
+.env
+server/.env
+# installed packages (Render installs them itself)
+node_modules/
+# saved narrator voice lines and the private test song
+server/tts-cache/
+server/private-music/
+# local backups of the website front page
+backups/
+# editor and system files
+.DS_Store
+Thumbs.db
+*.log

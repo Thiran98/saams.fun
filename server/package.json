@@ -1,0 +1,20 @@
+{
+  "name": "sams-gama-server",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Sams Gama multiplayer game server (Node.js + Colyseus). Also serves the game files.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@colyseus/schema": "3.0.76",
+    "@colyseus/ws-transport": "0.16.5",
+    "colyseus": "0.16.5",
+    "colyseus.js": "0.16.22",
+    "express": "5.1.0"
+  }
+}
