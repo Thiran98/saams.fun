@@ -62,7 +62,7 @@ VM.view3d = (function () {
     catch (e) { console.warn('3D village could not start, using the flat village', e); wrap.remove(); fallback(); return; }
     renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('3D lost: flat village'); fallback(); });
     const touch = document.body.classList.contains('is-touch');
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1 : 1.5));
     renderer.setSize(innerWidth, innerHeight);
     renderer.shadowMap.enabled = !touch; // phones: no shadows (saves a lot of graphics memory)
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -75,7 +75,7 @@ VM.view3d = (function () {
     scene3.add(hemi);
     sun = new THREE.DirectionalLight('#fff4e0', 0.8);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(touch ? 1024 : 2048, touch ? 1024 : 2048);
+    sun.shadow.mapSize.set(1024, 1024); // lighter shadows
     Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
     sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.03;
     scene3.add(sun, sun.target);
@@ -96,8 +96,9 @@ VM.view3d = (function () {
     if (drawFence) sceneP.drawFence = (r) => { drawFence(r); fence3d(r); };
     if (sceneP.mourned) (sceneP.houseObjs || []).forEach(() => {}); // (flags made before 3D started are rare)
     buildBell();
-    // Phaser keeps running (rules, input, physics), invisible on top of the 3D view
+    // Phaser keeps running (rules, input, physics), invisible on top of the 3D view, and draws nothing (saves a lot)
     game.canvas.style.opacity = '0';
+    sceneP.cameras.main.setVisible(false);
     // tiles that change (harvested paddy, regrowth) redraw the ground
     const setTile = sceneP.setTile.bind(sceneP);
     sceneP.setTile = (x, y, t) => { setTile(x, y, t); dirty = true; };
@@ -178,7 +179,7 @@ VM.view3d = (function () {
       const im = new THREE.InstancedMesh(geo, m(color), list.length);
       const d = new THREE.Object3D();
       list.forEach((s, i) => { place(d, s); d.updateMatrix(); im.setMatrixAt(i, d.matrix); });
-      im.castShadow = true; im.receiveShadow = true; scene3.add(im);
+      im.castShadow = false; im.receiveShadow = true; scene3.add(im); // the many jungle trees cast no shadows (much faster)
     };
     const sz = (s) => 0.8 + (s[2] * 7 % 1) * 0.6;
     inst(trunkG, PAL.trunk, spots, (d, s) => { d.position.set(s[0], 0.25 * sz(s), s[1]); d.scale.setScalar(sz(s)); d.rotation.set(0, 0, 0); });
@@ -836,6 +837,7 @@ VM.view3d = (function () {
     if (failed) return;
     failed = true; ready = false; VM.USE3D = false;
     if (game && game.canvas) game.canvas.style.opacity = '';
+    if (sceneP && sceneP.cameras && sceneP.cameras.main) sceneP.cameras.main.setVisible(true); // the flat village draws again
     const w = document.getElementById('view3d'); if (w) w.remove();
     try { if (renderer) { renderer.dispose(); renderer.forceContextLoss(); } } catch (e) { /* gone */ }
   }

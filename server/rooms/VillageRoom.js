@@ -9,8 +9,9 @@ const { Player, VillageState } = require('./schema');
 const { VM, world, worldW, worldH, door } = require('../shared');
 const tts = require('../tts');
 
-const MAX_SPEED = 200;          // pixels per second (the tractor is the fastest at 185)
-const SLACK = 48;               // extra pixels allowed for network jitter
+const MAX_SPEED = 260;          // pixels per second (ghosts fly at 230, the tractor drives at 185)
+const SLACK = 80;               // extra pixels allowed for network jitter (slow mobile connections)
+const SNAP_AFTER = 220;         // only a move this far beyond the limit puts the player back (a cheat or a teleport)
 const RECONNECT_SECONDS = 30;   // how long a seat is kept after a connection drops
 const DEV = process.env.NODE_ENV !== 'production';
 const MIN_PLAYERS = Number(process.env.MIN_PLAYERS) || (DEV ? 3 : VM.MIN_PLAYERS);
@@ -562,11 +563,16 @@ class VillageRoom extends Room {
     const dt = Math.min(2, (now - meta.last) / 1000);
     const d = Math.hypot(x - p.x, y - p.y);
     const inside = x >= 0 && y >= 0 && x <= worldW && y <= worldH;
-    if (!inside || d > MAX_SPEED * dt + SLACK) {
-      client.send('snap', { x: p.x, y: p.y }); // refused: put the player back where the server says they are
+    const allowed = MAX_SPEED * dt + SLACK;
+    if (!inside || d > allowed + SNAP_AFTER) {
+      client.send('snap', { x: p.x, y: p.y }); // far too far: put the player back where the server says they are
       return;
     }
-    p.x = x; p.y = y;
+    if (d > allowed) {
+      // a little too far (moves arrived in a burst on a slow connection): accept the move, only as far as allowed,
+      // without throwing the player back (that felt like getting stuck)
+      const k = allowed / d; p.x += (x - p.x) * k; p.y += (y - p.y) * k;
+    } else { p.x = x; p.y = y; }
     if (this.state.tractorBy === client.sessionId) { this.state.tractorX = x + (m.flip ? -10 : 10); this.state.tractorY = y + 12; }
     this.qCheckDistance(client.sessionId);
     p.facing = ['down', 'up', 'side'].includes(m.facing) ? m.facing : 'down';
