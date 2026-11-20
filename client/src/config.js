@@ -95,7 +95,7 @@ VM.STORE_GOAL = 20;        // paddy the village wants in the storage house
 VM.GARDEN_PRICE = 10;      // picking vegetables from someone else's land (pushes players to buy their own)
 
 // Food: everyone must eat every day. The bar drops slowly and empties in about one day and night.
-VM.FOOD_START = 70;
+VM.FOOD_START = 100; // everyone starts a match with a full stomach (full energy)
 VM.FOOD_PER_SECOND = 100 / 240;
 VM.STARVE_SECONDS = 60; // online: this long with an empty food bar and you die of hunger
 

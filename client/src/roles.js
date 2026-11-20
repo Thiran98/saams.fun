@@ -482,6 +482,7 @@ Object.assign(VillageScene.prototype, {
         VM.JOBS = VM.LIVING_JOBS; document.body.classList.remove('is-ghost');
         this.landOwned = false;
         VM.state.inv.money = VM.LAND_PRICE; // Rs 50: just enough for the land next to your house
+        VM.state.food = VM.FOOD_START; VM.ui.food(VM.state.food); // full energy at the start of every match
         VM.ui.inventory();
         // everyone rides the bus to the village, then the black screen tells each player their secret role
         const st = VM.net.room.state, riders = [];
