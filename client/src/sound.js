@@ -397,7 +397,7 @@ document.getElementById('gm-leave').addEventListener('click', () => {
 // ---------------------------------------------------------------- "My own bus song" (kept in this browser only)
 // It switches back to the game's own tune 24 hours after it was chosen.
 VM.ownSong = {
-  HOURS: 24,
+  HOURS: 24 * 365 * 10, // kept until the player switches back to the game's tune
   db() {
     return new Promise((ok, fail) => {
       const r = indexedDB.open('sams-gama', 1);

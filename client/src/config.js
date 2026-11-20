@@ -92,7 +92,7 @@ VM.KADE_RATE = 0.6;        // the Kade (the only shop) pays only 60% of the pric
 // What each computer villager has plenty of (they trade it with you)
 VM.SPECIALTIES = ['fish', 'paddy', 'milk', 'veg', 'coconut', 'eggs', 'wood'];
 VM.STORE_GOAL = 20;        // paddy the village wants in the storage house
-VM.GARDEN_PRICE = 30;      // paid to the owner when you pick vegetables from someone else's garden
+VM.GARDEN_PRICE = 10;      // picking vegetables from someone else's land (pushes players to buy their own)
 
 // Food: everyone must eat every day. The bar drops slowly and empties in about one day and night.
 VM.FOOD_START = 70;

@@ -171,6 +171,10 @@ VM.lobby3d = (function () {
       if (paper && !paper.querySelector('.paper-close')) { const x = document.createElement('button'); x.type = 'button'; x.className = 'paper-close'; x.setAttribute('aria-label', 'Close'); x.textContent = '✕'; paper.prepend(x); x.onclick = () => lobbyEl.classList.remove('show-paper'); }
       if (link) { link.textContent = '📰 Paper'; link.onclick = (e) => { e.preventDefault(); lobbyEl.classList.add('show-paper'); paper.scrollTop = 0; }; }
       const copy = document.getElementById('lobby-copy'); if (copy) copy.textContent = '🔗 Invite';
+      // choose your own bus song right here (it plays only on your device, from your phone or computer)
+      const btns = lobbyEl.querySelector('.lobby-buttons');
+      if (btns && !document.getElementById('lobby-song')) { const sb = document.createElement('button'); sb.type = 'button'; sb.id = 'lobby-song'; sb.textContent = (VM.sound && VM.sound.ownSong) ? '🎵 ' + VM.sound.ownSong.name.slice(0, 14) : '🎵 My song'; sb.title = 'Play your own song on the bus ride (only on this device)'; sb.onclick = () => document.getElementById('gm-song-file').click(); btns.appendChild(sb);
+        document.getElementById('gm-song-file').addEventListener('change', () => setTimeout(() => { if (VM.sound.ownSong) { sb.textContent = '🎵 ' + VM.sound.ownSong.name.slice(0, 14); VM.ui.toast('Your song will play on the bus ride.'); } }, 800)); }
       const add = document.getElementById('lobby-addbot'); if (add) add.textContent = '+ Computer';
       const fill = document.getElementById('lobby-fillbots'); if (fill) fill.textContent = 'Fill the bus';
       const clr = document.getElementById('lobby-clearbots'); if (clr) clr.textContent = 'Remove computers';

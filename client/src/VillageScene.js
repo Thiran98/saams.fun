@@ -951,7 +951,9 @@ class VillageScene extends Phaser.Scene {
           done: () => { VM.give('money', -VM.LAND_PRICE); this.landOwned = true; if (this.online) VM.net.send('buyLand'); this.completeJob('garden'); return 'You bought your land! Grow vegetables here, then swap them with other villagers.'; } } };
       }
       if (this.online && owner && !owner.isPlayer && !this.ghost) {
-        return { name: 'notYours', key: 'notYours', tile: { x: tx, y: ty }, task: { label: owner.name + "'s land", seconds: 0, done: () => 'This is ' + owner.name + "'s land. Swap goods with them instead." } };
+        const op = owner.id && VM.net.room && VM.net.room.state.players.get(owner.id);
+        if (!op || !op.land) return { name: 'notYours', key: 'notYours', tile: { x: tx, y: ty }, task: { label: owner.name + "'s land (not bought yet)", seconds: 0, done: () => 'Nothing grows here yet: ' + owner.name + ' has not bought this land. Buy your own land (Rs ' + VM.LAND_PRICE + ') by your house.' } };
+        // someone else's land: you may pick, but it costs Rs 10 each time (buying your own land pays off)
       }
       const label = !owner ? 'Pick vegetables' : owner.isPlayer ? 'Pick vegetables (your garden)' : `Pick vegetables (${owner.name}'s garden, pay Rs ${VM.GARDEN_PRICE})`;
       return { name: 'garden', key: 'garden@' + tx + ',' + ty, task: VM.task('garden'), owner, label, tile: { x: tx, y: ty } };

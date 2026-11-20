@@ -220,13 +220,13 @@ VM.TASKS = {
     label: 'Pick vegetables',
     seconds: 2.5,
     cooldown: 45,
-    check: (spot) => (!(VM.net && VM.net.online) && spot.owner && !spot.owner.isPlayer && VM.state.inv.money < VM.GARDEN_PRICE ? `You need Rs ${VM.GARDEN_PRICE} to pay ${spot.owner.name}.` : null),
+    check: (spot) => (spot.owner && !spot.owner.isPlayer && VM.state.inv.money < VM.GARDEN_PRICE ? `Picking from ${spot.owner.name}'s land costs Rs ${VM.GARDEN_PRICE}. Buy your own land (Rs ${VM.LAND_PRICE}) and pick for free!` : null),
     done: (scene, spot) => {
       VM.give('veg', 1);
-      if (spot.owner && !spot.owner.isPlayer && !(VM.net && VM.net.online)) {
+      if (spot.owner && !spot.owner.isPlayer) {
         VM.give('money', -VM.GARDEN_PRICE);
-        spot.owner.money += VM.GARDEN_PRICE;
-        return `You picked vegetables and paid Rs ${VM.GARDEN_PRICE} to ${spot.owner.name}, the owner.`;
+        if (!(VM.net && VM.net.online)) spot.owner.money += VM.GARDEN_PRICE;
+        return `You paid Rs ${VM.GARDEN_PRICE} to pick from ${spot.owner.name}'s land. Your own land picks for free!`;
       }
       return spot.owner ? 'You picked vegetables from your garden.' : 'You picked vegetables.';
     },
