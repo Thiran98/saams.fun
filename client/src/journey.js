@@ -47,7 +47,6 @@ VM.journey = {
     document.getElementById('lobby').hidden = true;
     VM.sound.start();
     VM.sound.play('horn');
-    VM.sound.engine(true);
     VM.sound.music(true); // bus DJ music all the way to the village
     // the browser blocks sound until the player clicks: then one tap starts the music
     const tap = document.getElementById('tapmusic');
@@ -55,7 +54,7 @@ VM.journey = {
     tap.hidden = !blocked;
     tap.onclick = () => {
       VM.sound.start();
-      if (VM.sound.ctx) VM.sound.ctx.resume().then(() => { VM.sound.engine(true); VM.sound.music(true); });
+      if (VM.sound.ctx) VM.sound.ctx.resume().then(() => { VM.sound.music(true); });
       tap.hidden = true;
     };
     document.getElementById('journey-skip').onclick = () => this.finish();

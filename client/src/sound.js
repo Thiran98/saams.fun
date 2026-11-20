@@ -274,6 +274,46 @@ VM.sound = {
     osc.start(); lfo.start(); src.start();
     this.eng = { g, osc, lfo, src, f };
   },
+  // an old diesel bus idling at the stand while it loads: a deep, lumpy "dug-dug-dug", loose metal panels
+  // rattling, and now and then a cough of the engine
+  busIdle(on) {
+    if (!on) {
+      if (this.idle) { const e = this.idle; e.out.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.25); clearInterval(e.cough); setTimeout(() => e.nodes.forEach((n) => { try { n.stop(); } catch (x) { /* stopped */ } }), 1200); this.idle = null; }
+      return;
+    }
+    if (!this.ready() || this.idle) return;
+    const c = this.ctx, out = c.createGain();
+    out.gain.value = 0.0001; out.gain.setTargetAtTime(0.11, c.currentTime, 0.5); out.connect(this.master);
+    // the engine: low sawtooth and square, filtered, pulsed by a slow "chug"
+    const body = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 240; lp.Q.value = 3;
+    const o1 = c.createOscillator(), o2 = c.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 38; o2.type = 'square'; o2.frequency.value = 76.5;
+    const g2 = c.createGain(); g2.gain.value = 0.35;
+    o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(body);
+    const chug = c.createOscillator(), chugDepth = c.createGain(); chug.type = 'sine'; chug.frequency.value = 7.2; chugDepth.gain.value = 0.55;
+    body.gain.value = 0.6; chug.connect(chugDepth); chugDepth.connect(body.gain);       // dug-dug-dug
+    body.connect(out);
+    // loose metal rattling in time with the engine
+    const src = c.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 2.5;
+    const rat = c.createGain(); rat.gain.value = 0.05;
+    const shake = c.createOscillator(), shakeDepth = c.createGain(); shake.type = 'square'; shake.frequency.value = 14.4; shakeDepth.gain.value = 0.045;
+    shake.connect(shakeDepth); shakeDepth.connect(rat.gain);
+    src.connect(bp); bp.connect(rat); rat.connect(out);
+    // a low exhaust rumble underneath
+    const src2 = c.createBufferSource(); src2.buffer = this.noiseBuf; src2.loop = true;
+    const lp2 = c.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 90; const rum = c.createGain(); rum.gain.value = 0.5;
+    src2.connect(lp2); lp2.connect(rum); rum.connect(out);
+    [o1, o2, chug, shake, src, src2].forEach((n) => n.start());
+    // every few seconds the old engine coughs and catches again
+    const cough = setInterval(() => {
+      if (!this.idle || Math.random() < 0.4) return;
+      const t = c.currentTime;
+      chug.frequency.setValueAtTime(7.2, t); chug.frequency.linearRampToValueAtTime(4.2, t + 0.25); chug.frequency.linearRampToValueAtTime(7.2, t + 0.9);
+      o1.frequency.setValueAtTime(38, t); o1.frequency.linearRampToValueAtTime(31, t + 0.25); o1.frequency.linearRampToValueAtTime(40, t + 0.6); o1.frequency.linearRampToValueAtTime(38, t + 1.1);
+    }, 3500);
+    this.idle = { out, nodes: [o1, o2, chug, shake, src, src2], cough };
+  },
+
   // the engine works harder when the bus speeds up (0 = still, 1 = full speed)
   engineSpeed(k) {
     if (!this.eng) return;
@@ -477,3 +517,10 @@ window.addEventListener('load', () => {
   VM.net.locate().then(() => fetch(VM.net.api('bus-song-status'), { cache: 'no-store' })).then((r) => r.json())
     .then((j) => { VM.sound.busSongOn = !!j.on; }).catch(() => { VM.sound.busSongOn = false; });
 });
+
+// the idling bus: on while the bus stand (lobby) is on screen
+setInterval(() => {
+  const l = document.getElementById('lobby');
+  const atStand = !!(l && !l.hidden && !document.hidden && !VM.sound.muted);
+  if (VM.sound.busIdle) VM.sound.busIdle(atStand);
+}, 500);
