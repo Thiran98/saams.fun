@@ -42,7 +42,10 @@ Write-Host ''
 
 # put the address on saams.fun
 $json = Join-Path $root 'site\server.json'
-[IO.File]::WriteAllText( $json, "{ `"url`": `"$url`" }`n", ( New-Object Text.UTF8Encoding $false ) )
+# keep the cloud server (Render) as "url" and add this PC's tunnel as "pc": saams.fun then uses the PC while it is on
+$cloud = 'https://sams-gama.onrender.com'
+try { $old = Get-Content $json -Raw | ConvertFrom-Json; if ( $old.url -and $old.url -notmatch 'trycloudflare' ) { $cloud = $old.url } } catch { }
+[IO.File]::WriteAllText( $json, "{ `"url`": `"$cloud`", `"pc`": `"$url`" }`n", ( New-Object Text.UTF8Encoding $false ) )
 $cred = Get-Credential -UserName 'u220100750' -Message 'Hostinger FTP password (to point saams.fun at this village). Cancel = skip.'
 if ( $cred ) {
 	$pw  = $cred.GetNetworkCredential().Password -replace '\\', '\\' -replace '"', '\"'

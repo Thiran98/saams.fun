@@ -120,6 +120,13 @@
   .mode { background: var(--ink); color: #fff; border-radius: 16px; padding: 14px 18px; max-width: 360px; text-align: left; border: 4px solid var(--ink); box-shadow: 6px 6px 0 var(--pink); }
   .mode b { font-family: "Luckiest Guy", sans-serif; font-weight: 400; font-size: 24px; color: var(--yellow); }
   .mode p { margin: 4px 0 0; font-size: 14px; color: #d8dbe3; }
+  .servers { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .srv-label { font-weight: 900; font-size: 12px; letter-spacing: .12em; color: #fff; text-shadow: 0 2px 0 #0d0f14; }
+  .srv { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 3px solid #0d0f14; background: #fff; color: #0d0f14; font: 900 13px "Segoe UI", Arial, sans-serif; cursor: pointer; box-shadow: 0 3px 0 #0d0f14; }
+  .srv.on { background: #ffd25a; }
+  .led { width: 9px; height: 9px; border-radius: 50%; background: #9aa0a6; box-shadow: 0 0 0 2px rgba(0,0,0,.15); }
+  .led.up { background: #3bd16f; box-shadow: 0 0 8px #3bd16f; } .led.wake { background: #ffb020; } .led.down { background: #e5484d; }
+  .small-alone { font-size: 14px !important; padding: 8px 16px !important; }
   footer { background: var(--ink); color: #9aa0aa; text-align: center; padding: 18px; font-size: 13px; }
   footer b { color: var(--yellow); }
 
@@ -141,8 +148,15 @@
     <p class="sub big">12 PLAYERS. 1 BUS. SECRET THIEVES.<br>WHO DO YOU TRUST?</p>
     <div id="status" class="status"><i class="dot"></i><span id="status-text">Checking the village…</span></div>
     <div class="ctas">
-      <a id="play" class="play off big" aria-disabled="true">PLAY</a>
-      <a class="alone big" href="practice/">PRACTISE ALONE</a>
+      <a id="play" class="play big" href="game/">PLAY 3D</a>
+      <a id="play2d" class="alone big" href="game/?2d">PLAY 2D · CLASSIC</a>
+      <div class="servers" role="radiogroup" aria-label="Game server">
+        <span class="srv-label">SERVER</span>
+        <button type="button" class="srv on" data-srv="auto">AUTO</button>
+        <button type="button" class="srv" data-srv="cloud"><i class="led" id="led-cloud"></i>☁ CLOUD</button>
+        <button type="button" class="srv" data-srv="pc"><i class="led" id="led-pc"></i>💻 MY PC</button>
+      </div>
+      <a class="alone small-alone" href="practice/">PRACTISE ALONE (no internet needed)</a>
       <p class="note" id="note">Everyone presses PLAY and types a name. 3 to 12 players, or fill the bus with computer players.</p>
     </div>
     <div class="trees back" aria-hidden="true"></div>
@@ -204,21 +218,33 @@
     play.classList.add('off'); play.setAttribute('aria-disabled', 'true'); play.removeAttribute('href');
     document.getElementById('note').textContent = 'Come back when the village opens, or practise alone in the meantime.';
   };
-  let url = '';
-  try { url = ((await (await fetch('server.json?' + Date.now(), { cache: 'no-store' })).json()).url || '').replace(/\/$/, ''); } catch (e) { /* no address yet */ }
-  if (!url) return closed();
-  const check = async () => {
-    try {
-      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
-      const s = await (await fetch(url + '/status', { cache: 'no-store', signal: ctl.signal })).json();
-      status.className = 'status open';
-      text.textContent = s.players ? 'VILLAGE OPEN · ' + s.players + ' PLAYING NOW' : 'VILLAGE OPEN · BE THE FIRST ON THE BUS!';
-      play.classList.remove('off'); play.removeAttribute('aria-disabled'); play.href = 'game/?3d'; // the game in 3D, on saams.fun
-      document.getElementById('note').textContent = 'Everyone presses PLAY and types a name. 3 to 12 players, or fill the bus with computer players.';
-    } catch (e) { closed(); }
+  let cloud = '', pc = '';
+  try { const j = await (await fetch('server.json?' + Date.now(), { cache: 'no-store' })).json(); cloud = (j.url || '').replace(/\/$/, ''); pc = (j.pc || '').replace(/\/$/, ''); } catch (e) { /* no address yet */ }
+  // the server switch: Auto (the PC when it is on, otherwise the cloud), Cloud, or My PC; the PLAY links follow it
+  let choice = 'auto';
+  try { choice = localStorage.getItem('sams-gama-server') || 'auto'; } catch (e) { /* private mode */ }
+  const setLinks = () => {
+    const q = choice === 'auto' ? '' : 'server=' + choice;
+    play.href = 'game/' + (q ? '?' + q : '');
+    document.getElementById('play2d').href = 'game/?2d' + (q ? '&' + q : '');
+    document.querySelectorAll('.srv').forEach((b) => b.classList.toggle('on', b.dataset.srv === choice));
   };
+  document.querySelectorAll('.srv').forEach((b) => b.addEventListener('click', () => { choice = b.dataset.srv; try { localStorage.setItem('sams-gama-server', choice); } catch (e) { /* private */ } setLinks(); }));
+  setLinks();
+  const ask = async (base, ms) => { if (!base) return null; try { const c = new AbortController(); const t = setTimeout(() => c.abort(), ms); const r = await fetch(base + '/status', { cache: 'no-store', signal: c.signal }); clearTimeout(t); return await r.json(); } catch (e) { return null; } };
+  const check = async () => {
+    const [p, c] = await Promise.all([ask(pc, 4000), ask(cloud, 8000)]);
+    document.getElementById('led-pc').className = 'led ' + (p ? 'up' : 'down');
+    document.getElementById('led-cloud').className = 'led ' + (c ? 'up' : 'wake');   // the cloud may just be asleep: it wakes when you play
+    const s = p || c;
+    status.className = 'status open';
+    text.textContent = s && s.players ? 'VILLAGE OPEN · ' + s.players + ' PLAYING NOW' : 'VILLAGE OPEN · BE THE FIRST ON THE BUS!';
+    play.classList.remove('off'); play.removeAttribute('aria-disabled');
+    document.getElementById('note').textContent = (p ? 'Your PC server is on. ' : 'Playing on the cloud server' + (c ? '. ' : ' (it may take a minute to wake up). ')) + 'Everyone presses PLAY and types a name.';
+  };
+  if (!cloud && !pc) return closed();
   await check();
-  setInterval(check, 15000);
+  setInterval(check, 20000);
 })();
 </script>
 </body>

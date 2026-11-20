@@ -26,7 +26,14 @@ VM.net = {
     if (!/\/(play|game)(\/|$)/.test(location.pathname)) { this.base = ''; return ''; }
     try {
       const j = await (await fetch('/server.json?' + Date.now(), { cache: 'no-store' })).json();
-      this.base = String(j.url || '').replace(/\/$/, '');
+      const cloud = String(j.url || '').replace(/\/$/, ''), pc = String(j.pc || '').replace(/\/$/, '');
+      const want = (new URLSearchParams(location.search).get('server') || 'auto').toLowerCase();
+      // is the PC server on? (it answers fast when it is; an old PC address simply fails)
+      const pcOn = async () => { if (!pc) return false; try { const c = new AbortController(); const t = setTimeout(() => c.abort(), 3000); const r = await fetch(pc + '/health', { cache: 'no-store', signal: c.signal }); clearTimeout(t); return r.ok; } catch (e) { return false; } };
+      if (want === 'pc') this.base = pc;
+      else if (want === 'cloud') this.base = cloud;
+      else this.base = (await pcOn()) ? pc : cloud;   // Auto: the PC when it is on, otherwise the cloud server
+      if (!this.base) this.base = cloud || pc;
     } catch (e) { this.base = ''; }
     return this.base;
   },
