@@ -7,7 +7,8 @@
 # The FTP password is asked in a Windows dialog and never saved.
 # -FrontOnly: upload only the front page (index.html and server.json), not the game files
 # -Only src/mafia.js,css/style.css: upload only these game files (to play/ and practice/), nothing else
-param( [string] $Remote = 'domains/saams.fun/public_html', [switch] $FrontOnly, [string[]] $Only )
+# -Only ... -AlsoFront: those game files and the front page (index.html, server.json) in one go
+param( [string] $Remote = 'domains/saams.fun/public_html', [switch] $FrontOnly, [string[]] $Only, [switch] $AlsoFront )
 $HostIp   = '82.25.125.145'
 $UserName = 'u220100750'
 $root     = $PSScriptRoot
@@ -55,6 +56,11 @@ if ( $Only ) {
 		Send-GamePage $folder # always: the new version stamp makes browsers load the changed files
 	}
 	Remove-Item $page -ErrorAction SilentlyContinue
+	if ( $AlsoFront ) {
+		Write-Host 'Front page'
+		Send ( Join-Path $root 'site\server.json' ) 'server.json'
+		Send ( Join-Path $root 'site\index.html' ) 'index.html'
+	}
 	Write-Host 'Done.'; exit 0
 }
 if ( -not $FrontOnly ) {
