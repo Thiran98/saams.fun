@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Sams Gama</title>
   <meta name="description" content="Someone on this bus is a thief. Work the village by day, lock your door by night, and vote them out. 3 to 12 friends, free, no download.">
@@ -400,6 +403,7 @@
   <!-- the in-game menu (☰) and settings -->
   <button id="menubtn" type="button" aria-label="Menu" title="Menu">☰</button>
   <button id="mapbtn" type="button" aria-label="Village map" title="Village map">🗺️</button>
+  <button id="fsbtn" type="button" aria-label="Full screen" title="Full screen" hidden>⛶</button>
   <div id="rotate"><div class="rot-phone"></div><b>Turn your phone sideways</b><span>Sams Gama plays best in landscape.</span></div>
   <div id="gamemenu" class="overlay" hidden>
     <div class="card gm-card">
@@ -447,6 +451,7 @@
   <script src="src/journey.js"></script>
   <script src="src/journey3d.js"></script>
   <script src="src/mafia.js"></script>
+  <script src="src/fullscreen.js"></script>
   <script src="src/main.js"></script>
 </body>
 </html>

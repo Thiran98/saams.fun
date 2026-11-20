@@ -45,7 +45,12 @@ window.addEventListener('load', () => {
   });
   document.getElementById('dam-shuffle').addEventListener('click', () => { set(VM.randomLook()); if (VM.sound) VM.sound.play('seat'); });
   const edit = document.getElementById('dam-edit');
-  edit.addEventListener('click', () => { rows.hidden = !rows.hidden; edit.setAttribute('aria-expanded', rows.hidden ? 'false' : 'true'); });
+  edit.addEventListener('click', () => {
+    rows.hidden = !rows.hidden;
+    edit.setAttribute('aria-expanded', rows.hidden ? 'false' : 'true');
+    edit.textContent = rows.hidden ? '✏️ Customise' : '✓ Done';
+    const card = box.closest('.menu-card'); if (card) { card.classList.toggle('customising', !rows.hidden); card.scrollTop = 0; } // short screens: only the Damindu while customising
+  });
   showRows();
 
   // ---- the little turning 3D preview (its own small renderer, freed as soon as the game starts)

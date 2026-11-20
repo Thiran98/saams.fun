@@ -1131,3 +1131,37 @@ html.force-landscape body { position: fixed; top: 0; left: 0; width: 100vh; heig
 .dam-cell { display: grid; gap: 2px; }
 body.is-touch #dam-pic { width: 76px; height: 90px; }
 body.is-touch .dam-rows { max-height: 34vh; }
+
+/* full screen button (one tap full screen on phones; this toggles it) */
+#fsbtn { position: fixed; right: 12px; bottom: 12px; z-index: 61; width: 40px; height: 40px; border-radius: 12px; border: 2px solid rgba(255,255,255,.55); background: rgba(22,26,20,.8); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+#fsbtn[hidden] { display: none; }
+body.is-touch #fsbtn { right: auto; left: 58px; top: 10px; bottom: auto; width: 40px; height: 40px; }
+body.is-touch:not(.playing) #fsbtn { left: 10px; }
+
+/* turned phones (held upright, shown sideways): the screen's height is the phone's width, so the menu card is
+   limited by that and scrolls inside instead of running off the screen */
+html.force-landscape #help .menu-card { max-height: calc(100vw - 20px); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html.force-landscape #help { overflow: hidden; }
+/* short screens: the Damindu customiser takes less room */
+@media (max-height: 520px) {
+  #help .dam { gap: 4px; }
+  #help .dam-top { padding: 4px 8px; gap: 8px; }
+  #help #dam-pic { width: 58px; height: 68px; }
+  #help .dam-side { grid-template-columns: 1fr 1fr; gap: 6px; }
+  #help .dam-btn { padding: 6px 8px; font-size: 13px; box-shadow: 0 2px 0 #10170f; }
+  #help .dam-rows { max-height: none; }
+}
+@media (max-height: 520px) {
+  #help .menu-hint, #help .menu-or { display: none; }
+  #help .menu-card .menu-play { font-size: 20px; padding: 7px; border-width: 3px; box-shadow: 0 4px 0 #10170f; margin-top: 2px; }
+  #help .menu-label { font-size: 10px; }
+  #help .menu-card .menu-row { margin-top: 0; }
+}
+@media (max-height: 520px) {
+  #help .menu-card { padding: 8px 12px; }
+  #help .menu-card.customising > :not(.dam) { display: none !important; }
+  #help .menu-card.customising .dam-rows { gap: 4px; }
+  #help .dam-row { padding: 2px 4px; }
+  #help .dam-row b { font-size: 9px; }
+  #help .dam-row button { height: 20px; width: 24px; }
+}
