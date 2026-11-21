@@ -365,6 +365,7 @@ class VillageScene extends Phaser.Scene {
     this.updateBees(time, delta);
     this.updateOtherBees(time, delta);
     this.updateHives(time);
+    this.updatePets(time, delta);
     this.updateTractor();
     this.updateRescue(time);
     if (this.trading && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.trading.sprite.x, this.trading.sprite.y) > 70) VM.ui.closeTrade();
@@ -653,7 +654,8 @@ class VillageScene extends Phaser.Scene {
       const toPlayer = Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y);
       const thief = this.isOriginalThief(), seeDist = VM.ELEPHANT_SEES * (thief ? 0.55 : 1);   // thieves must sneak out at night: elephants notice them later
       const sees = toPlayer < seeDist || (e.charging && toPlayer < seeDist * 1.4 && time < e.chaseUntil);
-      if (!e.leaving && !e.inGarden && this.isNight && this.playerOutside() && sees) {
+      const guarded = (this.petSprites && [...this.petSprites.values()].some((pt) => Phaser.Math.Distance.Between(pt.x, pt.y, p.x, p.y) < 90));
+      if (!e.leaving && !e.inGarden && this.isNight && this.playerOutside() && sees && !guarded) {
         goal = { x: p.x, y: p.y };
         speed = thief ? VM.ELEPHANT_CHARGE * 0.72 : VM.ELEPHANT_CHARGE;   // and charge them slower (a hungry thief can still get away)
         if (toPlayer < seeDist) e.chaseUntil = time + (thief ? VM.ELEPHANT_MEMORY / 2 : VM.ELEPHANT_MEMORY);   // it keeps chasing a little after losing sight of you
@@ -916,7 +918,10 @@ class VillageScene extends Phaser.Scene {
     }
 
     for (const e of this.elephants) {
-      if (!e.leaving && Phaser.Math.Distance.Between(p.x, p.y, e.x, e.y) < 80) return { name: 'elephant', key: 'elephant', task: VM.task('elephant'), elephant: e, img: e, scene: this };
+      if (!e.leaving && Phaser.Math.Distance.Between(p.x, p.y, e.x, e.y) < 80) {
+        if (this.canTamePet() && !this.ghost) return { name: 'tamePet', key: 'tamePet', elephant: e, img: e, task: { label: 'Tame this elephant with honey from your hive 🍯', seconds: 3, done: () => this.tamePet(e) } };
+        return { name: 'elephant', key: 'elephant', task: VM.task('elephant'), elephant: e, img: e, scene: this };
+      }
     }
     for (const b of this.boats) {
       if (Phaser.Math.Distance.Between(p.x, p.y, b.x, b.y) < 46) return { name: 'boat', key: 'boat', task: VM.task('boat'), boat: b, img: b };
@@ -1484,8 +1489,64 @@ Object.assign(VillageScene.prototype, {
     if (this.online) VM.net.send('keepBees'); else this.myHive = 2;
     VM.sound.play('task');
     this.stopBees();
-    VM.ui.banner('Bees', 'You kept the bees!', 'They made a hive at your house. For 2 nights they chase away elephants and thieves who come near it.');
+    VM.ui.banner('Bees', 'You kept the bees!', 'They made a hive at your house. For 2 nights they chase away elephants and thieves. Tip: with honey from your hive you can tame a wild elephant (E next to it).');
   },
+  // ---- the pet elephant
+  canTamePet() {
+    if (this.online) { const m = VM.net.myState(); return !!(m && m.hive && !m.pet); }
+    return !!(this.myHive && !this.myPet);
+  },
+  tamePet(e) {
+    if (!this.canTamePet()) return 'You need honey from your own beehive to tame an elephant.';
+    if (this.online) VM.net.send('tamePet'); else this.myPet = true;
+    // the wild elephant becomes your pet: it leaves the wild herd and appears beside you
+    const at = { x: e.x, y: e.y };
+    if (e.alert) e.alert.destroy();
+    e.destroy(); this.elephants = this.elephants.filter((x) => x !== e);
+    this.petStart = at;
+    VM.sound.play('trumpet');
+    VM.ui.banner('Pet elephant', 'You tamed an elephant!', 'It follows you by day and guards your house at night. A thief who tries to rob you gets attacked.');
+    return null;
+  },
+  // every pet in the village: whose it is, who it follows, and their house
+  petOwners() {
+    const out = [];
+    const st = this.online && VM.net.room && VM.net.room.state;
+    if (st) {
+      const me = VM.net.room.sessionId;
+      st.players.forEach((p, id) => {
+        if (!p.pet) return;
+        const sprite = id === me ? this.player : (this.remotes.get(id) || {}).sprite;
+        out.push({ key: id, sprite, house: this.world.houses[p.house], alive: p.alive, asleep: p.asleep });
+      });
+    } else if (this.myPet) out.push({ key: 'me', sprite: this.player, house: this.me.house, alive: !this.ghost, asleep: this.sleeping });
+    return out;
+  },
+  // by day the pet walks behind its owner; at night (or when the owner is asleep or gone) it guards the house
+  updatePets(time, delta) {
+    if (!this.petSprites) this.petSprites = new Map();
+    const dt = Math.min(0.05, (delta || 16) / 1000), A = VM.ART, seen = new Set();
+    for (const o of this.petOwners()) {
+      seen.add(o.key);
+      let pet = this.petSprites.get(o.key);
+      if (!pet) {
+        const start = (o.key === 'me' || (this.online && o.key === VM.net.room.sessionId)) && this.petStart ? this.petStart : o.sprite ? { x: o.sprite.x + 40, y: o.sprite.y } : { x: o.house.x + 50, y: o.house.y + 30 };
+        pet = this.add.image(start.x, start.y, 'elephant').setOrigin(0.5, 1).setScale(0.8 / A);
+        pet.isPet = true; this.petSprites.set(o.key, pet);
+      }
+      const home = !o.sprite || !o.alive || o.asleep || this.isNight || o.sprite.visible === false;
+      const tx = home ? o.house.x + 58 : o.sprite.x - (o.sprite.flipX ? -46 : 46);
+      const ty = home ? o.house.y + 34 : o.sprite.y + 4;
+      const dx = tx - pet.x, dy = ty - pet.y, d = Math.hypot(dx, dy);
+      if (d > 14) { const sp = Math.min(d * 2.2, home ? 70 : 150); pet.x += dx / d * sp * dt; pet.y += dy / d * sp * dt; pet.setFlipX(dx < 0); }
+      if (d > 900) pet.setPosition(tx, ty);                        // the owner teleported: catch up
+      pet.setDepth(pet.y);
+      pet.setVisible(!(this.isNight && !home));
+    }
+    for (const [k, pet] of this.petSprites) if (!seen.has(k)) { pet.destroy(); this.petSprites.delete(k); }
+    this.pets = [...this.petSprites.values()];
+  },
+
   // the houses guarded by a hive (door positions)
   hiveSpots() {
     const out = [];

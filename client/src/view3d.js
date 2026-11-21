@@ -548,7 +548,7 @@ VM.view3d = (function () {
     bees3.children.forEach((bee, i) => { const a = now / 90 + i * 2.1, r = 0.25 + (i % 4) * 0.13; bee.position.set(Math.cos(a * (1 + i % 3 * 0.3)) * r, Math.sin(now / 70 + i) * 0.25, Math.sin(a * 1.3 + i) * r); bee.rotation.y = -a; });
     });
   }
-  const hives3 = new Map();
+  const hives3 = new Map(), pets3 = new Map();
   function syncHives(now) {
     const list = sceneP.hives || [], seen = new Set();
     for (const h of list) {
@@ -1004,6 +1004,22 @@ VM.view3d = (function () {
     const eSeen = new Set();
     (sceneP.elephants || []).forEach((e) => { if (!e.active) return; eSeen.add(e); let g = elephants.get(e); if (!g) { g = makeAnimal('elephant'); const al = labelSprite(); al.position.y = 2.3; al.scale.set(1.2, 0.3, 1); drawLabel(al, '! ELEPHANT', '#d63a2f', '#fff'); g.add(al); g.userData.alert = al; elephants.set(e, g); } follow(g, e, dt, false); if (g.userData.alert) g.userData.alert.visible = !e.leaving; });
     for (const [e, g] of elephants) if (!eSeen.has(e)) { scene3.remove(g); elephants.delete(e); }
+    // pet elephants: friendlier, a little smaller, with a flower garland
+    const pSeen = new Set();
+    (sceneP.pets || []).forEach((pt) => {
+      if (!pt.active) return; pSeen.add(pt);
+      let g = pets3.get(pt);
+      if (!g) {
+        g = makeAnimal('elephant'); g.scale.setScalar(0.8);
+        const garland = new THREE.Group();
+        for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; garland.add(sph(0.075, ['#ff8a1f', '#ffd23f', '#fff6dc'][i % 3], 0.74, 1.12 + Math.sin(a) * 0.42, Math.cos(a) * 0.5)); }
+        g.add(garland);
+        const tag = labelSprite(); tag.position.y = 2.2; tag.scale.set(1.8, 0.45, 1); drawLabel(tag, '🐘 PET', '#2a8a3e', '#fff'); g.add(tag);
+        pets3.set(pt, g);
+      }
+      follow(g, pt, dt, false); g.visible = pt.visible !== false;
+    });
+    for (const [pt, g] of pets3) if (!pSeen.has(pt)) { scene3.remove(g); pets3.delete(pt); }
     if (sceneP.tractor && tractor3) { tractor3.position.set(U(sceneP.tractor.x), 0, U(sceneP.tractor.y) - 0.3); tractor3.rotation.y = sceneP.tractor.flipX ? Math.PI : 0; }
     (sceneP.boats || []).forEach((b, i) => { const sp = b.sprite || b; if (boats3[i] && sp) { boats3[i].position.set(U(sp.x), Math.sin(now / 700 + i) * 0.02, U(sp.y) - 0.2); /* floats level, only bobbing gently */ } });
 

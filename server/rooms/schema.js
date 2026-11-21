@@ -34,6 +34,7 @@ class Player extends Schema {
     this.paint = 0;        // paint marks from ghosts who think this player is a thief
     this.dx = 0; this.dy = 0; // where they died
     this.hive = 0;
+    this.pet = false;      // tamed an elephant with honey from their hive: it guards their house from thieves
     this.look = '';        // their Damindu (a look code like "3.0.1.5.0.2.0.1.1"; '' = random from their outfit)         // nights left that a beehive guards their house (from elephants and thieves)
   }
 }
@@ -41,7 +42,7 @@ defineTypes(Player, {
   name: 'string', outfit: 'string', colour: 'string', house: 'uint8',
   x: 'number', y: 'number', facing: 'string', flip: 'boolean', moving: 'boolean',
   asleep: 'boolean', weak: 'boolean', inBoat: 'boolean', inTractor: 'boolean', connected: 'boolean',
-  alive: 'boolean', exposed: 'boolean', voted: 'boolean', bell: 'boolean', bot: 'boolean', inWater: 'boolean', injured: 'uint8', land: 'boolean', fencePaddy: 'boolean', fenceGarden: 'boolean', paint: 'uint8', dx: 'number', dy: 'number', hive: 'uint8', look: 'string',
+  alive: 'boolean', exposed: 'boolean', voted: 'boolean', bell: 'boolean', bot: 'boolean', inWater: 'boolean', injured: 'uint8', land: 'boolean', fencePaddy: 'boolean', fenceGarden: 'boolean', paint: 'uint8', dx: 'number', dy: 'number', hive: 'uint8', look: 'string', pet: 'boolean',
 });
 
 class VillageState extends Schema {

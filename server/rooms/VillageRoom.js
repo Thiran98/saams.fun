@@ -131,6 +131,13 @@ class VillageRoom extends Room {
       this.broadcast('note', { text: p.name + ' bought a paddy plot.' });
     });
     // an electric fence around your own paddy plot or vegetable garden (the browser pays the Rs 50)
+    // a pet elephant: only with an active beehive (the honey tames it), one per player, for the rest of the match
+    this.onMessage('tamePet', (client) => {
+      const s = this.state, p = s.players.get(client.sessionId);
+      if (!p || !p.alive || s.stage !== 'playing' || p.pet || !p.hive) return;
+      p.pet = true;
+      this.broadcast('note', { text: '🐘 ' + p.name + ' tamed a wild elephant with honey!' });
+    });
     // bees led home: a hive guards the house for 2 nights
     this.onMessage('keepBees', (client) => {
       const s = this.state, p = s.players.get(client.sessionId);
@@ -866,7 +873,7 @@ class VillageRoom extends Room {
     s.tractorBy = ''; s.tractorX = world.tractor.x; s.tractorY = world.tractor.y;
     s.players.forEach((p, id) => {
       p.alive = true; p.exposed = false; p.voted = false; p.bell = false; p.asleep = false;
-      p.injured = 0; p.paint = 0; p.dx = 0; p.dy = 0; p.land = false; p.fencePaddy = false; p.fenceGarden = false; p.hive = 0;
+      p.injured = 0; p.paint = 0; p.dx = 0; p.dy = 0; p.land = false; p.fencePaddy = false; p.fenceGarden = false; p.hive = 0; p.pet = false;
       const d = door(p.house); p.x = d.x; p.y = d.y;
       if (this.meta.has(id)) this.meta.get(id).last = Date.now();
     });
@@ -1034,6 +1041,12 @@ class VillageRoom extends Room {
     const t = s.players.get(targetId);
     if (!t || targetId === id || this.roles.get(targetId) === 'thief') return;
     if (dist(p, door(t.house)) > RANGE + 20) { this.tell(id, 'Too far away.', 'bad'); return; }
+    if (t.pet) { // the pet elephant guards the house: the thief is attacked and lies injured (the doctor can still save them)
+      if (!p.injured) { p.injured = INJURED_SECONDS; client.send('injured', { seconds: INJURED_SECONDS }); }
+      this.tell(id, `🐘 ${t.name}'s pet elephant attacked you! You are injured and got nothing. Only the doctor can save you.`, 'bad');
+      this.tell(targetId, '🐘 Your elephant attacked a thief at your house!', 'good');
+      return;
+    }
     if (t.hive) { this.tell(id, `🐝 Bees guard ${t.name}'s house! They stung you and you ran away with nothing.`, 'bad'); this.tell(targetId, '🐝 Your bees chased a thief away from your house!', 'good'); return; }
     if (this.night.robbed.has(targetId)) { this.tell(id, `${t.name}'s house has already been robbed tonight.`, 'bad'); return; }
     this.night.robbed.add(targetId);
@@ -1051,7 +1064,7 @@ class VillageRoom extends Room {
       const targetId = String(m.target || '');
       const t = s.players.get(targetId);
       if (!t || !t.alive || targetId === id || this.roles.get(targetId) === 'thief') return;
-      if (t.hive) { this.tell(id, `🐝 Bees guard ${t.name}'s house! You could not get close.`, 'bad'); return; }
+      if (t.hive || t.pet) { this.tell(id, t.pet ? `🐘 ${t.name}'s elephant chased you away from the house!` : `🐝 Bees guard ${t.name}'s house! You could not get close.`, 'bad'); return; }
       if (n.framers.has(id)) { this.tell(id, 'You have already hidden goods somewhere tonight.', 'bad'); return; }
       if (dist(p, door(t.house)) > RANGE + 20) { this.tell(id, 'Too far away.', 'bad'); return; }
       n.framers.add(id);
