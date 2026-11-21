@@ -8,7 +8,8 @@
 # -FrontOnly: upload only the front page (index.html and server.json), not the game files
 # -Only src/mafia.js,css/style.css: upload only these game files (to play/ and practice/), nothing else
 # -Only ... -AlsoFront: those game files and the front page (index.html, server.json) in one go
-param( [string] $Remote = 'domains/saams.fun/public_html', [switch] $FrontOnly, [string[]] $Only, [switch] $AlsoFront )
+# -Folders practice,play: only these game folders (default: game, play and practice)
+param( [string] $Remote = 'domains/saams.fun/public_html', [switch] $FrontOnly, [string[]] $Only, [switch] $AlsoFront, [string[]] $Folders = @('game', 'play', 'practice') )
 $HostIp   = '82.25.125.145'
 $UserName = 'u220100750'
 $root     = $PSScriptRoot
@@ -27,7 +28,34 @@ function Send( [string] $local, [string] $remotePath ) {
 		if ( $LASTEXITCODE -eq 67 ) { Write-Host 'Wrong FTP password (530). Nothing more was uploaded.'; exit 1 }
 		Start-Sleep -Seconds 2
 	}
+	# big files sometimes keep failing midway: send them in pieces to a temporary name, then rename into place
+	if ( ( Get-Item $local ).Length -gt 60000 ) { if ( Send-InPieces $local $remotePath ) { return } }
 	Write-Host "Upload of $remotePath failed (curl $LASTEXITCODE)."; exit 1
+}
+
+# upload a file in ~40 KB pieces (the first piece creates "<name>.part", the others append to it), then rename
+# "<name>.part" to "<name>" in one step, so visitors never load a half-uploaded file. Starts again on any error.
+function Send-InPieces( [string] $local, [string] $remotePath ) {
+	$bytes = [IO.File]::ReadAllBytes( $local ); $size = 40000
+	$name = Split-Path $remotePath -Leaf
+	$tmp = Join-Path $env:TEMP ( 'sams-piece-' + [guid]::NewGuid() )
+	for ( $round = 1; $round -le 4; $round++ ) {
+		$ok = $true
+		for ( $at = 0; $at -lt $bytes.Length; $at += $size ) {
+			$n = [Math]::Min( $size, $bytes.Length - $at )
+			$piece = New-Object byte[] $n; [Array]::Copy( $bytes, $at, $piece, 0, $n ); [IO.File]::WriteAllBytes( $tmp, $piece )
+			$last = ( $at + $n ) -ge $bytes.Length
+			$args2 = @( '-s', '-S', '-u', $login, '--ssl-reqd', '-k', '--tls-max', '1.2', '--ftp-create-dirs', '-T', $tmp )
+			if ( $at -gt 0 ) { $args2 += '--append' }
+			if ( $last ) { $args2 += @( '-Q', "-RNFR $name.part", '-Q', "-RNTO $name" ) }
+			& curl.exe @args2 "ftp://$HostIp/$Remote/$remotePath.part"
+			if ( $LASTEXITCODE -ne 0 ) { $ok = $false; break }
+		}
+		if ( $ok ) { Remove-Item $tmp -ErrorAction SilentlyContinue; Write-Host "  uploaded $remotePath (in pieces)"; return $true }
+		Start-Sleep -Seconds 3
+	}
+	Remove-Item $tmp -ErrorAction SilentlyContinue
+	return $false
 }
 
 # backup of the current home page
@@ -51,7 +79,7 @@ function Send-GamePage( [string] $folder ) {
 }
 
 if ( $Only ) {
-	foreach ( $folder in 'game', 'play', 'practice' ) {
+	foreach ( $folder in $Folders ) {
 		foreach ( $f in $Only ) { if ( $f -ne 'index.html' ) { Send ( Join-Path ( Join-Path $root 'client' ) ( $f -replace '/', '\' ) ) "$folder/$f" } }
 		Send-GamePage $folder # always: the new version stamp makes browsers load the changed files
 	}
