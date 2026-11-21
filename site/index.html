@@ -43,7 +43,7 @@
   .burst { position: absolute; left: 70%; top: 50%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; pointer-events: none; opacity: .14;
     background: repeating-conic-gradient(#fff 0 6deg, transparent 6deg 18deg); animation: rot 70s linear infinite; }
   @keyframes rot { to { transform: rotate(360deg); } }
-  .hero-in { position: relative; z-index: 1; display: grid; grid-template-columns: 1.05fr 1fr; gap: 10px; align-items: end; padding: 40px 16px 64px; max-width: 1120px; margin: 0 auto; }
+  .hero-in { position: relative; z-index: 1; display: grid; grid-template-columns: 1.05fr 1fr; gap: 10px; align-items: center; padding: 56px 16px 126px; max-width: 1120px; margin: 0 auto; } /* equal room above and below the text: 56px, plus the road (70px) */
   .sticker { display: inline-block; padding: 7px 14px 4px; border: 4px solid var(--ink); border-radius: 12px; font-size: clamp(14px, 2.4vw, 19px); box-shadow: 5px 5px 0 var(--ink); color: var(--ink); }
   .s1 { background: var(--yellow); transform: rotate(-5deg); } .s2 { background: var(--pink); color: #fff; transform: rotate(4deg); margin-left: 8px; }
   .title { margin: 16px 0 4px; font-size: clamp(66px, 11vw, 150px); line-height: .85; color: #fff;
@@ -74,7 +74,7 @@
   .led.up { background: #3bd16f; box-shadow: 0 0 8px #3bd16f; } .led.wake { background: #ffb020; } .led.down { background: #e5484d; }
 
   /* the Damindu line-up at the bus halt */
-  .halt { position: relative; height: 470px; margin-bottom: -8px; }
+  .halt { position: relative; height: 470px; align-self: end; margin-bottom: -64px; } /* reaches down to stand on the road */
   #squad { position: absolute; inset: 0; width: 100%; height: 100%; }
   .halt-sign { position: absolute; left: 6%; top: 6%; background: #fff; color: var(--ink); border: 4px solid var(--ink); border-radius: 12px; padding: 6px 12px 3px; font-size: 18px; box-shadow: 4px 4px 0 var(--ink); transform: rotate(-4deg); }
   .halt-sign small { display: block; font-family: "Nunito", sans-serif; font-weight: 900; font-size: 11px; letter-spacing: .06em; }
