@@ -105,7 +105,7 @@ class VillageScene extends Phaser.Scene {
     this.tractorLabel = this.addPlaceLabel(world.tractor.x, world.tractor.y - 34, 'Tractor (chases elephants)');
 
     this.physics.add.collider([...this.bots, ...this.animals], this.ground);
-    this.physics.add.collider([...this.villagers, ...this.animals], this.solids);
+    this.physics.add.collider([...this.villagers, ...this.animals], this.solids, null, (a, z) => !(a === this.player && this.riding && !z.isHouse)); // a pet elephant walks through bushes, not houses
     this.physics.add.collider(this.animals, this.gates);
 
     // Camera follows you
@@ -204,7 +204,7 @@ class VillageScene extends Phaser.Scene {
   placeHouse(h, index) {
     const img = this.add.image(h.x, h.y, 'house-empty').setOrigin(0.5, 1).setScale(1 / VM.ART).setDepth(h.y);
     const fp = VM.FOOTPRINTS.house;
-    this.solids.add(this.add.zone(h.x, h.y - fp[1] / 2, fp[0], fp[1]));
+    const hz = this.add.zone(h.x, h.y - fp[1] / 2, fp[0], fp[1]); hz.isHouse = true; this.solids.add(hz);
     return { h, index, img, owner: null, label: null, spot: null };
   }
 
@@ -366,6 +366,7 @@ class VillageScene extends Phaser.Scene {
     this.updateOtherBees(time, delta);
     this.updateHives(time);
     this.updatePets(time, delta);
+    this.syncCleared();
     this.updateTractor();
     this.updateRescue(time);
     if (this.trading && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.trading.sprite.x, this.trading.sprite.y) > 70) VM.ui.closeTrade();
@@ -406,7 +407,9 @@ class VillageScene extends Phaser.Scene {
     if (VM.helpOpen || this.drowning || this.sleeping || this.trading || this.blocked || this.injured) { x = 0; y = 0; }
 
     let speed = this.ghost ? 230 : VM.state.food <= 0 ? VM.HUNGRY_SPEED : VM.PLAYER_SPEED; // ghosts fly
-    if (this.inTractor) {
+    if (this.riding) {
+      speed = this.feetTile(this.player) === VM.T.WATER ? 110 : 170;   // elephants wade across the river, a bit slower
+    } else if (this.inTractor) {
       speed = 185;
       // the tractor cannot drive into water
       const S = VM.TILE, ahead = this.tileAt(Math.floor((this.player.x + x * 18) / S), Math.floor((this.player.y - 3 + y * 18) / S));
@@ -430,7 +433,7 @@ class VillageScene extends Phaser.Scene {
     this.walkAnim(this.player, x, y);
 
     // Walking into water without a boat: you fall in
-    if (!this.inBoat && !this.drowning && !this.ghost && !this.canSwim && !VM.helpOpen && this.feetTile(this.player) === VM.T.WATER) this.fallIn(time);
+    if (!this.inBoat && !this.riding && !this.drowning && !this.ghost && !this.canSwim && !VM.helpOpen && this.feetTile(this.player) === VM.T.WATER) this.fallIn(time);
   }
 
   feetTile(s) {
@@ -637,7 +640,7 @@ class VillageScene extends Phaser.Scene {
 
   // You are in danger at night when you are outside: not in bed, not a ghost, not in a boat.
   playerOutside() {
-    return !this.sleeping && !this.ghost && !this.inBoat && !this.inTractor && !this.drowning && !VM.helpOpen;
+    return !this.sleeping && !this.ghost && !this.inBoat && !this.inTractor && !this.riding && !this.drowning && !VM.helpOpen;
   }
 
   updateElephants(time) {
@@ -824,6 +827,9 @@ class VillageScene extends Phaser.Scene {
       }
     }
     const s = this.findSpotBase();
+    if ((!s || TREE_TYPES.includes(s.name) || s.name === 'hunt') && this.myPetSprite() && !this.ghost && !this.inBoat && !this.inTractor && !this.riding && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.myPetSprite().x, this.myPetSprite().y) < 75) {
+      return { name: 'ridePet', key: 'ridePet', img: this.myPetSprite(), task: { label: 'Ride your elephant 🐘', seconds: 0, done: () => this.startRide() } };
+    }
     if (s && s.name === 'home' && this.online && !this.ghost) return this.fenceOffer(s) || s;
     if (!this.ghost || !s) return s;
     const place = TREE_TYPES.includes(s.name) ? null : s.name, h = VM.GHOST_HAUNTS[place];
@@ -885,6 +891,12 @@ class VillageScene extends Phaser.Scene {
       return { name: 'fish', key: 'fish', task: VM.task('fish') };
     }
     if (this.inTractor) return { name: 'tractorOut', key: 'tractorOut', task: VM.task('tractorOut') };
+    if (this.riding) {
+      const S = VM.TILE, tx = Math.floor(p.x / S), ty = Math.floor((p.y - 3) / S), left = VM.CLEAR_LIMIT - this.clearedCount();
+      if (this.tileAt(tx, ty) === VM.T.FOREST && left > 0) return { name: 'clearLand', key: 'clearLand', tile: { x: tx, y: ty }, task: { label: 'Clear this jungle for farmland with your elephant 🌱 (' + left + ' left)', seconds: 5, done: () => this.clearLand(tx, ty) } };
+      if (this.feetTile(p) === VM.T.WATER) return null;   // no getting off in the middle of the river
+      return { name: 'rideOff', key: 'rideOff', task: { label: 'Get off your elephant', seconds: 0, done: () => this.stopRide() } };
+    }
     if (!this.ghost && Phaser.Math.Distance.Between(p.x, p.y, this.tractor.x, this.tractor.y) < 50) {
       const st = this.online && VM.net.room && VM.net.room.state;
       const driver = st && st.tractorBy && st.tractorBy !== VM.net.room.sessionId && st.players.get(st.tractorBy);
@@ -972,15 +984,16 @@ class VillageScene extends Phaser.Scene {
     if (here === VM.T.STUBBLE && this.gardenOwner.has(tx + ',' + ty)) return { name: 'eaten', key: 'eaten', tile: { x: tx, y: ty }, task: { label: 'An elephant ate these vegetables', seconds: 0, done: () => 'An elephant ate the vegetables here. They grow back in 3 minutes.' } };
     if (here === VM.T.GARDEN) {
       const owner = this.gardenOwner.get(tx + ',' + ty) || null;
+      const cleared = !!(this.clearedTiles && this.clearedTiles.has(tx + ',' + ty));   // land a pet elephant cleared: already its owner's
       if (owner && owner.deadLand) return { name: 'deadLand', key: 'deadLand', tile: { x: tx, y: ty }, task: { label: 'Birds ate everything here', seconds: 0, done: () => 'Birds ate all the vegetables. Nothing grows here any more.' } };
-      if (owner && owner.isPlayer && !this.landOwned && !this.ghost) {
+      if (owner && owner.isPlayer && !this.landOwned && !this.ghost && !cleared) {
         return { name: 'buyLand', key: 'buyLand', tile: { x: tx, y: ty }, task: { label: 'Buy this land for Rs ' + VM.LAND_PRICE + ' (then grow vegetables here)', seconds: 0,
           check: () => (VM.state.inv.money >= VM.LAND_PRICE ? null : 'You need Rs ' + VM.LAND_PRICE + ' to buy this land.'),
           done: () => { VM.give('money', -VM.LAND_PRICE); this.landOwned = true; if (this.online) VM.net.send('buyLand'); this.completeJob('garden'); return 'You bought your land! Grow vegetables here, then swap them with other villagers.'; } } };
       }
       if (this.online && owner && !owner.isPlayer && !this.ghost) {
         const op = owner.id && VM.net.room && VM.net.room.state.players.get(owner.id);
-        if (!op || !op.land) return { name: 'notYours', key: 'notYours', tile: { x: tx, y: ty }, task: { label: owner.name + "'s land (not bought yet)", seconds: 0, done: () => 'Nothing grows here yet: ' + owner.name + ' has not bought this land. Buy your own land (Rs ' + VM.LAND_PRICE + ') by your house.' } };
+        if ((!op || !op.land) && !cleared) return { name: 'notYours', key: 'notYours', tile: { x: tx, y: ty }, task: { label: owner.name + "'s land (not bought yet)", seconds: 0, done: () => 'Nothing grows here yet: ' + owner.name + ' has not bought this land. Buy your own land (Rs ' + VM.LAND_PRICE + ') by your house.' } };
         // someone else's land: you may pick, but it costs Rs 10 each time (buying your own land pays off)
       }
       const label = !owner ? 'Pick vegetables' : owner.isPlayer ? 'Pick vegetables (your garden)' : `Pick vegetables (${owner.name}'s garden, pay Rs ${VM.GARDEN_PRICE})`;
@@ -1427,10 +1440,10 @@ class VillageScene extends Phaser.Scene {
       VM.net.send('move', { x: Math.round(pl.x * 10) / 10, y: Math.round(pl.y * 10) / 10, facing: pl.facing, flip: pl.flipX, moving });
       this.wasMoving = moving;
     }
-    const status = (this.sleeping ? 1 : 0) + (this.inBoat ? 2 : 0) + (this.inTractor ? 4 : 0) + (this.drowning ? 8 : 0) + (this.weak ? 16 : 0);
+    const status = (this.sleeping ? 1 : 0) + (this.inBoat ? 2 : 0) + (this.inTractor ? 4 : 0) + (this.drowning ? 8 : 0) + (this.weak ? 16 : 0) + (this.riding ? 32 : 0);
     if (status !== this.lastStatus) {
       this.lastStatus = status;
-      VM.net.send('status', { asleep: this.sleeping, inBoat: !!this.inBoat, inTractor: this.inTractor, inWater: !!this.drowning, weak: !!this.weak });
+      VM.net.send('status', { asleep: this.sleeping, inBoat: !!this.inBoat, inTractor: this.inTractor, inWater: !!this.drowning, weak: !!this.weak, riding: !!this.riding });
     }
     VM.ui.netStatus(VM.net.status, room.state.players.size);
     this.syncRoles(room); // Phase 3 (roles.js)
@@ -1492,6 +1505,64 @@ Object.assign(VillageScene.prototype, {
     VM.ui.banner('Bees', 'You kept the bees!', 'They made a hive at your house. For 2 nights they chase away elephants and thieves. Tip: with honey from your hive you can tame a wild elephant (E next to it).');
   },
   // ---- the pet elephant
+  // ---- land cleared by pet elephants
+  clearedCount() {
+    if (this.online && VM.net.room && VM.net.room.state && VM.net.room.state.cleared) { let n = 0; VM.net.room.state.cleared.forEach((o) => { if (o === VM.net.room.sessionId) n++; }); return n; }
+    return this.myCleared || 0;
+  },
+  clearLand(tx, ty) {
+    if (this.clearedCount() >= VM.CLEAR_LIMIT) return 'Your elephant has already cleared ' + VM.CLEAR_LIMIT + ' patches this match.';
+    if (this.online) VM.net.send('clearLand', { x: tx, y: ty });
+    else { this.myCleared = (this.myCleared || 0) + 1; this.applyClear(tx, ty, 'me'); }
+    VM.sound.play('trumpet');
+    return 'Your elephant pulled out the bushes and trees: new farmland for you! Grow and pick vegetables there.';
+  },
+  // turn the jungle tiles of a 3x3 patch into vegetable land owned by its clearer
+  applyClear(cx, cy, ownerKey) {
+    if (!this.clearedTiles) { this.clearedTiles = new Set(); this.clearedRects = []; }
+    const mine = ownerKey === 'me' || (this.online && VM.net.room && ownerKey === VM.net.room.sessionId);
+    const owner = mine ? this.owners.find((o) => o.isPlayer) : this.owners.find((o) => o.id === ownerKey);
+    for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
+      if (this.tileAt(x, y) !== VM.T.FOREST) continue;
+      this.setTile(x, y, VM.T.GARDEN);
+      this.gardenOwner.set(x + ',' + y, owner || null);
+      this.clearedTiles.add(x + ',' + y);
+    }
+    const rect = { x0: cx - 1, y0: cy - 1, x1: cx + 2, y1: cy + 2 };
+    this.clearedRects.push(rect);
+    if (VM.view3d && VM.view3d.clearTrees) VM.view3d.clearTrees(rect);
+  },
+  syncCleared() {
+    const st = this.online && VM.net.room && VM.net.room.state;
+    if (!st || !st.cleared) return;
+    if (!this.clearedDone) this.clearedDone = new Set();
+    if (st.cleared.size === this.clearedDone.size) return;
+    st.cleared.forEach((owner, key) => {
+      if (this.clearedDone.has(key)) return;
+      this.clearedDone.add(key);
+      const [x, y] = key.split(',').map(Number);
+      this.applyClear(x, y, owner);
+    });
+  },
+
+  // my own pet (its 2D sprite), if I have one
+  myPetSprite() {
+    if (!this.petSprites) return null;
+    return this.petSprites.get(this.online && VM.net.room ? VM.net.room.sessionId : 'me') || null;
+  },
+  startRide() {
+    const pet = this.myPetSprite(); if (!pet) return 'Your elephant is not here.';
+    this.riding = true;
+    this.player.body.reset(pet.x, pet.y);
+    VM.sound.play('elephant');
+    return 'You climbed onto your elephant. Ride anywhere (not into water); wild elephants leave you alone. Press E to get off.';
+  },
+  stopRide() {
+    this.riding = false;
+    const pet = this.myPetSprite();
+    if (pet) this.player.body.reset(pet.x + (pet.flipX ? -40 : 40), pet.y + 6);
+    return 'You got off your elephant.';
+  },
   canTamePet() {
     if (this.online) { const m = VM.net.myState(); return !!(m && m.hive && !m.pet); }
     return !!(this.myHive && !this.myPet);
@@ -1517,14 +1588,15 @@ Object.assign(VillageScene.prototype, {
       st.players.forEach((p, id) => {
         if (!p.pet) return;
         const sprite = id === me ? this.player : (this.remotes.get(id) || {}).sprite;
-        out.push({ key: id, sprite, house: this.world.houses[p.house], alive: p.alive, asleep: p.asleep });
+        out.push({ key: id, sprite, house: this.world.houses[p.house], alive: p.alive, asleep: p.asleep, riding: id === me ? !!this.riding : !!p.riding });
       });
-    } else if (this.myPet) out.push({ key: 'me', sprite: this.player, house: this.me.house, alive: !this.ghost, asleep: this.sleeping });
+    } else if (this.myPet) out.push({ key: 'me', sprite: this.player, house: this.me.house, alive: !this.ghost, asleep: this.sleeping, riding: !!this.riding });
     return out;
   },
   // by day the pet walks behind its owner; at night (or when the owner is asleep or gone) it guards the house
   updatePets(time, delta) {
     if (!this.petSprites) this.petSprites = new Map();
+    if (this.riding && (this.ghost || !this.myPetSprite())) this.riding = false;   // fell off (out of the game)
     const dt = Math.min(0.05, (delta || 16) / 1000), A = VM.ART, seen = new Set();
     for (const o of this.petOwners()) {
       seen.add(o.key);
@@ -1534,6 +1606,7 @@ Object.assign(VillageScene.prototype, {
         pet = this.add.image(start.x, start.y, 'elephant').setOrigin(0.5, 1).setScale(0.8 / A);
         pet.isPet = true; this.petSprites.set(o.key, pet);
       }
+      if (o.riding && o.sprite) { pet.setPosition(o.sprite.x, o.sprite.y + 2); pet.setFlipX(!!o.sprite.flipX); pet.setDepth(o.sprite.y - 1); pet.setVisible(true); continue; } // under its rider
       const home = !o.sprite || !o.alive || o.asleep || this.isNight || o.sprite.visible === false;
       const tx = home ? o.house.x + 58 : o.sprite.x - (o.sprite.flipX ? -46 : 46);
       const ty = home ? o.house.y + 34 : o.sprite.y + 4;

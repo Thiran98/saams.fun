@@ -84,6 +84,7 @@ VM.view3d = (function () {
 
     buildGround();
     buildForest();
+    (sceneP.clearedRects || []).forEach(clearTrees);   // land cleared before the 3D village was built
     sceneP.world.objects.forEach(buildObject);
     sceneP.world.houses.forEach(buildHouse);
     buildBoatsAndTractor();
@@ -163,6 +164,12 @@ VM.view3d = (function () {
   }
 
   // forest tiles: many low-poly pines and round trees (instanced, so phones can draw them)
+  // jungle trees as instanced meshes, so cleared land can lose its trees (scaled to nothing)
+  const forestMeshes = [];
+  function clearTrees(r) {
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    forestMeshes.forEach(({ im, list }) => { let hit = false; list.forEach((s, i) => { if (s[0] >= r.x0 && s[0] < r.x1 && s[1] >= r.y0 && s[1] < r.y1) { im.setMatrixAt(i, zero); hit = true; } }); if (hit) im.instanceMatrix.needsUpdate = true; });
+  }
   function buildForest() {
     const g = sceneP.grid, k = T(), spots = [];
     // no jungle trees growing through buildings or houses
@@ -182,6 +189,7 @@ VM.view3d = (function () {
       const im = new THREE.InstancedMesh(geo, m(color), list.length);
       const d = new THREE.Object3D();
       list.forEach((s, i) => { place(d, s); d.updateMatrix(); im.setMatrixAt(i, d.matrix); });
+      forestMeshes.push({ im, list });
       im.castShadow = false; im.receiveShadow = true; scene3.add(im); // the many jungle trees cast no shadows (much faster)
     };
     const sz = (s) => 0.8 + (s[2] * 7 % 1) * 0.6;
@@ -978,6 +986,23 @@ VM.view3d = (function () {
       const wt = sceneP.tileAt(Math.floor(s.x / VM.TILE), Math.floor((s.y - 3) / VM.TILE));
       const inBoat = s === sceneP.player ? !!sceneP.inBoat : false;
       g.position.y = wt === T().WATER ? (inBoat ? 0.12 : -0.45) : 0;
+      // riding a pet elephant: on its neck behind the head, legs down both sides, leaning forward a little
+      const riding = s === sceneP.player ? !!sceneP.riding : !!(s.owner && s.owner.remote && VM.net.room && VM.net.room.state && (VM.net.room.state.players.get(s.owner.id) || {}).riding);
+      if (riding && sceneP.petSprites) {
+        const key = s === sceneP.player ? (sceneP.online && VM.net.room ? VM.net.room.sessionId : 'me') : s.owner.id;
+        const petG = pets3.get(sceneP.petSprites.get(key));
+        if (petG) {
+          const ry = petG.rotation.y, b = g.userData.body, p = b.userData.parts, gait = petG.userData.gait || 0;
+          g.position.set(petG.position.x + Math.cos(ry) * 0.42, 0.93 + Math.abs(Math.sin(gait)) * 0.025, petG.position.z - Math.sin(ry) * 0.42);
+          b.rotation.y = ry + Math.PI / 2; b.position.y = 0;
+          b.rotation.x = 0.18; b.rotation.z = Math.sin(gait) * 0.05;        // leaning forward, swaying with each step
+          if (p) {
+            p.legs.forEach((l, i) => { l.rotation.x = -0.35; l.rotation.z = (i ? -1 : 1) * 0.75; });   // astride the neck
+            p.arms.forEach((a) => { a.rotation.x = -0.75; });             // hands resting forward on its head
+          }
+          g.userData.ring.visible = false;
+        }
+      } else if (g.userData.body.rotation.x) { g.userData.body.rotation.x = 0; g.userData.body.rotation.z = 0; if (g.userData.body.userData.parts) g.userData.body.userData.parts.legs.forEach((l) => { l.rotation.z = 0; }); }
       if (s === sceneP.player && sceneP.inTractor && tractor3) {
         // on the seat over the back wheels, facing the bonnet, legs bent forward, hands on the steering wheel
         const fwd = tractor3.rotation.y ? -1 : 1, b = g.userData.body, p = b.userData.parts;
@@ -1057,5 +1082,5 @@ VM.view3d = (function () {
     renderer.render(scene3, camera);
   }
 
-  return { init, update };
+  return { init, update, clearTrees };
 })();

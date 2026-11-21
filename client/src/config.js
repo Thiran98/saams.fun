@@ -157,6 +157,7 @@ VM.BEE_CHANCE = 0.3;          // chance that hunting in the jungle upsets a bees
 VM.BEE_SPEED = 128;           // the swarm flies a little slower than you walk (150), faster than a hungry villager (90)
 VM.BEE_STING_FOOD = 6;        // food lost per sting
 VM.BEE_SECONDS = 0;           // 0 = they follow you until you hide in a house (or go to bed)
+VM.CLEAR_LIMIT = 2;           // jungle patches your elephant can clear into farmland each match
 VM.GARDEN_REGROW_MS = 3 * 60 * 1000; // vegetables eaten by an elephant grow back after 3 minutes
 
 // First jobs that teach the village. The yellow arrow points to the next one.

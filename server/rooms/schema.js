@@ -34,7 +34,8 @@ class Player extends Schema {
     this.paint = 0;        // paint marks from ghosts who think this player is a thief
     this.dx = 0; this.dy = 0; // where they died
     this.hive = 0;
-    this.pet = false;      // tamed an elephant with honey from their hive: it guards their house from thieves
+    this.pet = false;
+    this.riding = false;   // riding their pet elephant      // tamed an elephant with honey from their hive: it guards their house from thieves
     this.look = '';        // their Damindu (a look code like "3.0.1.5.0.2.0.1.1"; '' = random from their outfit)         // nights left that a beehive guards their house (from elephants and thieves)
   }
 }
@@ -42,7 +43,7 @@ defineTypes(Player, {
   name: 'string', outfit: 'string', colour: 'string', house: 'uint8',
   x: 'number', y: 'number', facing: 'string', flip: 'boolean', moving: 'boolean',
   asleep: 'boolean', weak: 'boolean', inBoat: 'boolean', inTractor: 'boolean', connected: 'boolean',
-  alive: 'boolean', exposed: 'boolean', voted: 'boolean', bell: 'boolean', bot: 'boolean', inWater: 'boolean', injured: 'uint8', land: 'boolean', fencePaddy: 'boolean', fenceGarden: 'boolean', paint: 'uint8', dx: 'number', dy: 'number', hive: 'uint8', look: 'string', pet: 'boolean',
+  alive: 'boolean', exposed: 'boolean', voted: 'boolean', bell: 'boolean', bot: 'boolean', inWater: 'boolean', injured: 'uint8', land: 'boolean', fencePaddy: 'boolean', fenceGarden: 'boolean', paint: 'uint8', dx: 'number', dy: 'number', hive: 'uint8', look: 'string', pet: 'boolean', riding: 'boolean',
 });
 
 class VillageState extends Schema {
@@ -52,6 +53,7 @@ class VillageState extends Schema {
     this.queues = new MapSchema();
     this.paddy = new MapSchema(); // paddy plot number (0-5) -> owner id
     this.drops = new MapSchema(); // goods on the ground: id -> JSON { x, y, by, items }
+    this.cleared = new MapSchema(); // jungle cleared into farmland by a pet elephant: "x,y" (patch centre tile) -> owner id
     this.tractorX = 0; this.tractorY = 0; // the one tractor everyone shares
     this.tractorBy = '';   // who is driving it ('' = parked) // place (well, cookhut, kade) -> player ids in line, front first, joined by commas
     this.phase = 0;        // index into VM.SCHEDULE
@@ -73,7 +75,7 @@ class VillageState extends Schema {
   }
 }
 defineTypes(VillageState, {
-  players: { map: Player }, queues: { map: 'string' }, paddy: { map: 'string' }, drops: { map: 'string' }, tractorX: 'number', tractorY: 'number', tractorBy: 'string', phase: 'uint8', phaseLeft: 'uint16',
+  players: { map: Player }, queues: { map: 'string' }, paddy: { map: 'string' }, drops: { map: 'string' }, cleared: { map: 'string' }, tractorX: 'number', tractorY: 'number', tractorBy: 'string', phase: 'uint8', phaseLeft: 'uint16',
   stage: 'string', host: 'string', meetingLeft: 'uint8', meetingBy: 'string', winner: 'string', minPlayers: 'uint8', waitLeft: 'uint16', spoiled: 'string', mode: 'string', code: 'string', mstep: 'string', mleft: 'uint16', mround: 'uint8',
 });
 

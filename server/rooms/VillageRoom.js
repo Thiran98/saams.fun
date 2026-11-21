@@ -69,7 +69,7 @@ class VillageRoom extends Room {
     this.onMessage('status', (client, m) => {
       const p = this.state.players.get(client.sessionId);
       if (!p || !m) return;
-      p.asleep = !!m.asleep && p.alive; p.inBoat = !!m.inBoat; p.inTractor = !!m.inTractor; p.inWater = !!m.inWater && p.alive; p.weak = !!m.weak && p.alive;
+      p.asleep = !!m.asleep && p.alive; p.inBoat = !!m.inBoat; p.inTractor = !!m.inTractor; p.inWater = !!m.inWater && p.alive; p.weak = !!m.weak && p.alive; p.riding = !!m.riding && p.pet && p.alive;
     });
     this.onMessage('look', (client, code) => {
       const p = this.state.players.get(client.sessionId);
@@ -137,6 +137,17 @@ class VillageRoom extends Room {
       if (!p || !p.alive || s.stage !== 'playing' || p.pet || !p.hive) return;
       p.pet = true;
       this.broadcast('note', { text: '🐘 ' + p.name + ' tamed a wild elephant with honey!' });
+    });
+    // a pet elephant clears a patch of jungle into its owner's farmland (the browsers know the map: only the centre is stored)
+    this.onMessage('clearLand', (client, m) => {
+      const s = this.state, p = s.players.get(client.sessionId);
+      if (!p || !p.alive || !p.pet || !p.riding || s.stage !== 'playing' || !m) return;
+      const x = Math.floor(Number(m.x)), y = Math.floor(Number(m.y));
+      if (!(x >= 1 && x < 79 && y >= 1 && y < 53)) return;
+      let mine = 0; s.cleared.forEach((owner) => { if (owner === client.sessionId) mine++; });
+      if (mine >= VM.CLEAR_LIMIT || s.cleared.has(x + ',' + y)) return;
+      s.cleared.set(x + ',' + y, client.sessionId);
+      this.broadcast('note', { text: '🐘 ' + p.name + "'s elephant cleared jungle for new farmland." });
     });
     // bees led home: a hive guards the house for 2 nights
     this.onMessage('keepBees', (client) => {
@@ -869,11 +880,11 @@ class VillageRoom extends Room {
       this.roles.set(id, role);
     });
     this.painted = new Map();
-    s.paddy.clear(); s.drops.clear();
+    s.paddy.clear(); s.drops.clear(); s.cleared.clear();
     s.tractorBy = ''; s.tractorX = world.tractor.x; s.tractorY = world.tractor.y;
     s.players.forEach((p, id) => {
       p.alive = true; p.exposed = false; p.voted = false; p.bell = false; p.asleep = false;
-      p.injured = 0; p.paint = 0; p.dx = 0; p.dy = 0; p.land = false; p.fencePaddy = false; p.fenceGarden = false; p.hive = 0; p.pet = false;
+      p.injured = 0; p.paint = 0; p.dx = 0; p.dy = 0; p.land = false; p.fencePaddy = false; p.fenceGarden = false; p.hive = 0; p.pet = false; p.riding = false;
       const d = door(p.house); p.x = d.x; p.y = d.y;
       if (this.meta.has(id)) this.meta.get(id).last = Date.now();
     });
