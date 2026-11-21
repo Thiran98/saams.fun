@@ -73,17 +73,21 @@ $page = Join-Path $env:TEMP "sams-gama-index-$stamp.html"
 $html = [IO.File]::ReadAllText( ( Join-Path $root 'client\index.html' ) )
 $html = [regex]::Replace( $html, '(src="src/[A-Za-z]+\.js|href="css/style\.css)"', ( '$1?v=' + $stamp + '"' ) )
 [IO.File]::WriteAllText( $page, $html, ( New-Object Text.UTF8Encoding $false ) )
+# play/ and practice/ load the game code from game/ (one copy of the code to upload; practice still runs offline)
+$pageShared = Join-Path $env:TEMP "sams-gama-index-shared-$stamp.html"
+$htmlShared = $html.Replace( 'src="src/', 'src="../game/src/' ).Replace( 'href="css/style.css', 'href="../game/css/style.css' )
+[IO.File]::WriteAllText( $pageShared, $htmlShared, ( New-Object Text.UTF8Encoding $false ) )
 function Send-GamePage( [string] $folder ) {
-	Send $page "$folder/index.html"
+	if ( $folder -eq 'game' ) { Send $page "$folder/index.html" } else { Send $pageShared "$folder/index.html" }
 	Send ( Join-Path $root 'site\game.htaccess' ) "$folder/.htaccess"
 }
 
 if ( $Only ) {
 	foreach ( $folder in $Folders ) {
-		foreach ( $f in $Only ) { if ( $f -ne 'index.html' ) { Send ( Join-Path ( Join-Path $root 'client' ) ( $f -replace '/', '\' ) ) "$folder/$f" } }
+		if ( $folder -eq 'game' ) { foreach ( $f in $Only ) { if ( $f -ne 'index.html' ) { Send ( Join-Path ( Join-Path $root 'client' ) ( $f -replace '/', '\' ) ) "$folder/$f" } } }   # the code lives only in game/
 		Send-GamePage $folder # always: the new version stamp makes browsers load the changed files
 	}
-	Remove-Item $page -ErrorAction SilentlyContinue
+	Remove-Item $page, $pageShared -ErrorAction SilentlyContinue
 	if ( $AlsoFront ) {
 		Write-Host 'Front page'
 		Send ( Join-Path $root 'site\server.json' ) 'server.json'
@@ -95,12 +99,13 @@ if ( -not $FrontOnly ) {
 	foreach ( $folder in 'game', 'play', 'practice' ) {
 		Write-Host "The game -> $folder/"
 		Send-GamePage $folder
+		if ( $folder -ne 'game' ) { continue }   # play/ and practice/ use the code in game/
 		Send ( Join-Path $root 'client\css\style.css' ) "$folder/css/style.css"
 		Get-ChildItem ( Join-Path $root 'client\src' ) -Filter *.js | ForEach-Object { Send $_.FullName ( "$folder/src/" + $_.Name ) }
 	}
 }
 
-Remove-Item $page -ErrorAction SilentlyContinue
+Remove-Item $page, $pageShared -ErrorAction SilentlyContinue
 Write-Host 'Front page'
 Send ( Join-Path $root 'site\server.json' ) 'server.json'
 Send ( Join-Path $root 'site\index.html' ) 'index.html'
